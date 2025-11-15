@@ -137,13 +137,34 @@ class EmailService
         try {
             // Load entities with associations
             $ticketsTable = $this->fetchTable('Tickets');
-            $ticket = $ticketsTable->get($ticket->id, contain: ['Requesters', 'Assignees']);
+            $ticket = $ticketsTable->get($ticket->id, contain: ['Requesters', 'Assignees', 'Attachments']);
 
             $commentsTable = $this->fetchTable('TicketComments');
             $comment = $commentsTable->get($comment->id, contain: ['Users']);
 
+            // Get comment attachments (non-inline only)
+            $commentAttachments = [];
+            if (!empty($ticket->attachments)) {
+                foreach ($ticket->attachments as $attachment) {
+                    if ($attachment->comment_id === $comment->id && !$attachment->is_inline) {
+                        $commentAttachments[] = $attachment;
+                    }
+                }
+            }
+
             // Build email content
             $subject = "[Ticket #{$ticket->ticket_number}] Nuevo comentario";
+
+            // Add attachment list to email body if there are attachments
+            $attachmentsList = '';
+            if (!empty($commentAttachments)) {
+                $attachmentsList = "<p><strong>Adjuntos:</strong></p><ul>";
+                foreach ($commentAttachments as $attachment) {
+                    $sizeKB = number_format($attachment->file_size / 1024, 1);
+                    $attachmentsList .= "<li>{$attachment->original_filename} ({$sizeKB} KB)</li>";
+                }
+                $attachmentsList .= "</ul>";
+            }
 
             $body = "
             <html>
@@ -170,6 +191,7 @@ class EmailService
                         <div class='comment'>
                             {$comment->body}
                         </div>
+                        {$attachmentsList}
                         <p style='text-align: center; margin-top: 20px;'>
                             <a href='{$this->getTicketUrl($ticket->id)}' class='button'>Ver Ticket</a>
                         </p>
@@ -182,8 +204,8 @@ class EmailService
             </html>
             ";
 
-            // Send email to requester
-            return $this->sendEmail($ticket->requester->email, $subject, $body);
+            // Send email to requester with attachments
+            return $this->sendEmail($ticket->requester->email, $subject, $body, $commentAttachments);
         } catch (\Exception $e) {
             Log::error('Failed to send new comment notification', [
                 'ticket_id' => $ticket->id,
@@ -234,9 +256,10 @@ class EmailService
      * @param string $to Recipient email
      * @param string $subject Email subject
      * @param string $body HTML body
+     * @param array $attachments Array of Attachment entities (optional)
      * @return bool Success status
      */
-    private function sendEmail(string $to, string $subject, string $body): bool
+    private function sendEmail(string $to, string $subject, string $body, array $attachments = []): bool
     {
         try {
             // Load SMTP config from database
@@ -272,10 +295,28 @@ class EmailService
                 ->setEmailFormat('html')
                 ->setFrom([$fromEmail => $fromName])
                 ->setTo($to)
-                ->setSubject($subject)
-                ->deliver($body);
+                ->setSubject($subject);
 
-            Log::info('Email sent successfully', ['to' => $to, 'subject' => $subject]);
+            // Add attachments if provided
+            if (!empty($attachments)) {
+                $attachmentFiles = [];
+                foreach ($attachments as $attachment) {
+                    $filePath = WWW_ROOT . 'uploads' . DS . 'attachments' . DS . $attachment->file_path;
+                    if (file_exists($filePath)) {
+                        $attachmentFiles[$attachment->original_filename] = [
+                            'file' => $filePath,
+                            'mimetype' => $attachment->mime_type,
+                        ];
+                    }
+                }
+                if (!empty($attachmentFiles)) {
+                    $mailer->setAttachments($attachmentFiles);
+                }
+            }
+
+            $mailer->deliver($body);
+
+            Log::info('Email sent successfully', ['to' => $to, 'subject' => $subject, 'attachments' => count($attachments)]);
 
             return true;
         } catch (\Exception $e) {

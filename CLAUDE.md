@@ -195,7 +195,7 @@ Services contain all business logic. Controllers are thin and delegate to servic
   - Double extension detection (prevents file.pdf.exe attacks)
   - File size limits: 5MB for images, 10MB for documents
   - UUID-based unique filenames
-- Saves to `/webroot/uploads/attachments/YYYY/MM/`
+- **File Organization:** Saves to `/webroot/uploads/attachments/TICKET_NUMBER/` (e.g., `TKT-2025-00001/`)
 - Replaces `cid:` references in HTML with local paths
 
 ### View Layer Components

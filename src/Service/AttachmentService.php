@@ -95,6 +95,10 @@ class AttachmentService
         string $mimeType,
         int $userId
     ): ?\App\Model\Entity\Attachment {
+        // Get ticket to retrieve ticket_number
+        $ticketsTable = $this->fetchTable('Tickets');
+        $ticket = $ticketsTable->get($ticketId);
+
         // Sanitize filename
         $filename = $this->sanitizeFilename($filename);
 
@@ -112,16 +116,17 @@ class AttachmentService
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         $uniqueFilename = Text::uuid() . '.' . $extension;
 
-        // Create directory structure: YYYY/MM/
-        $directory = $this->createUploadDirectory();
+        // Create directory structure: ticket-number/
+        $directory = $this->createUploadDirectory($ticket->ticket_number);
 
         if (!$directory) {
             Log::error('Failed to create upload directory');
             return null;
         }
 
-        // Full file path
-        $relativePath = date('Y') . DS . date('m') . DS . $uniqueFilename;
+        // Full file path using ticket number
+        $safeTicketNumber = preg_replace('/[^a-zA-Z0-9_-]/', '_', $ticket->ticket_number);
+        $relativePath = $safeTicketNumber . DS . $uniqueFilename;
         $fullPath = $directory . $uniqueFilename;
 
         // Save file
@@ -147,6 +152,7 @@ class AttachmentService
         if ($attachmentsTable->save($attachment)) {
             Log::info('Attachment saved', [
                 'ticket_id' => $ticketId,
+                'ticket_number' => $ticket->ticket_number,
                 'filename' => $filename,
             ]);
             return $attachment;
@@ -178,6 +184,10 @@ class AttachmentService
         string $contentId,
         int $userId
     ): ?\App\Model\Entity\Attachment {
+        // Get ticket to retrieve ticket_number
+        $ticketsTable = $this->fetchTable('Tickets');
+        $ticket = $ticketsTable->get($ticketId);
+
         // Validate image
         if (!$this->isImageMimeType($mimeType)) {
             Log::error('Invalid image MIME type', [
@@ -193,15 +203,16 @@ class AttachmentService
         $extension = $this->getExtensionFromMimeType($mimeType);
         $uniqueFilename = Text::uuid() . '.' . $extension;
 
-        // Create directory
-        $directory = $this->createUploadDirectory();
+        // Create directory based on ticket number
+        $directory = $this->createUploadDirectory($ticket->ticket_number);
 
         if (!$directory) {
             return null;
         }
 
-        // Save file
-        $relativePath = date('Y') . DS . date('m') . DS . $uniqueFilename;
+        // Save file using ticket number
+        $safeTicketNumber = preg_replace('/[^a-zA-Z0-9_-]/', '_', $ticket->ticket_number);
+        $relativePath = $safeTicketNumber . DS . $uniqueFilename;
         $fullPath = $directory . $uniqueFilename;
 
         if (file_put_contents($fullPath, $content) === false) {
@@ -247,6 +258,10 @@ class AttachmentService
         $uploadedFile,
         int $userId
     ): ?\App\Model\Entity\Attachment {
+        // Get ticket to retrieve ticket_number
+        $ticketsTable = $this->fetchTable('Tickets');
+        $ticket = $ticketsTable->get($ticketId);
+
         if ($uploadedFile->getError() !== UPLOAD_ERR_OK) {
             Log::error('File upload error', ['error' => $uploadedFile->getError()]);
             return null;
@@ -280,15 +295,16 @@ class AttachmentService
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         $uniqueFilename = Text::uuid() . '.' . $extension;
 
-        // Create directory
-        $directory = $this->createUploadDirectory();
+        // Create directory based on ticket number
+        $directory = $this->createUploadDirectory($ticket->ticket_number);
 
         if (!$directory) {
             return null;
         }
 
-        // Move uploaded file
-        $relativePath = date('Y') . DS . date('m') . DS . $uniqueFilename;
+        // Move uploaded file using ticket number
+        $safeTicketNumber = preg_replace('/[^a-zA-Z0-9_-]/', '_', $ticket->ticket_number);
+        $relativePath = $safeTicketNumber . DS . $uniqueFilename;
         $fullPath = $directory . $uniqueFilename;
 
         try {
@@ -509,14 +525,16 @@ class AttachmentService
     }
 
     /**
-     * Create upload directory structure
+     * Create upload directory structure based on ticket number
      *
+     * @param string $ticketNumber Ticket number (e.g., TKT-2025-00001)
      * @return string|false Directory path or false on failure
      */
-    private function createUploadDirectory()
+    private function createUploadDirectory(string $ticketNumber)
     {
-        $yearMonth = date('Y') . DS . date('m');
-        $directory = WWW_ROOT . self::UPLOAD_DIR . $yearMonth . DS;
+        // Use ticket number as directory (sanitize to be filesystem-safe)
+        $safeTicketNumber = preg_replace('/[^a-zA-Z0-9_-]/', '_', $ticketNumber);
+        $directory = WWW_ROOT . self::UPLOAD_DIR . $safeTicketNumber . DS;
 
         if (!is_dir($directory)) {
             if (!mkdir($directory, 0775, true)) {

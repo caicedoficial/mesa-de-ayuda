@@ -77,19 +77,15 @@ $userId = $user ? $user->get('id') : null;
     </div>
 
     <?php if ($tickets->count() > 0): ?>
-        <div class="">
+        <div class="table-responsive scroll" style="max-height: 300px; overflow-y: auto;">
             <table class="table table-hover mb-0">
-                <thead class="sticky-top">
-                    <tr class="">
+                <thead class="bg-white" style="position: sticky; top: 0; z-index: 5;">
+                    <tr>
                         <th class="w-fit pe-4 align-middle" style="width:36px">
                             <input type="checkbox" id="checkAll" class="form-check-input border border-dark rounded" />
                         </th>
-                        <th class="w-fit fw-semibold align-middle">
-                            Estado
-                        </th>
-                        <th class="w-fit fw-semibold align-middle">
-                            Asunto
-                        </th>
+                        <th class="w-fit fw-semibold align-middle">Estado</th>
+                        <th class="w-fit fw-semibold align-middle">Asunto</th>
                         <th class="w-fit fw-semibold align-middle">Solicitante</th>
                         <th class="w-fit fw-semibold align-middle">Asignado a</th>
                         <th class="w-fit fw-semibold align-middle">
@@ -101,32 +97,39 @@ $userId = $user ? $user->get('id') : null;
                     <?php foreach ($tickets as $ticket): ?>
                         <tr>
                             <td class="py-1 align-middle">
-                                <input type="checkbox" class="form-check-input row-check rounded border border-dark" value="<?= (int)$ticket->id ?>" />
+                                <input type="checkbox" class="form-check-input row-check rounded border border-dark"
+                                    value="<?= (int)$ticket->id ?>" />
                             </td>
+
                             <td class="py-1 align-middle small" style="width: 100px;">
                                 <?= $this->Status->badge($ticket->status) ?>
                             </td>
-                            <td class="py-1 fw-light align-middle small text-truncate" style="min-width: 300px; max-width: 300px;">
+
+                            <td class="py-1 fw-light align-middle small text-truncate"
+                                style="min-width: 300px; max-width: 300px;">
                                 <?php if ($ticket->assignee_id === 7): ?>
                                     <?= $this->Html->link(
                                         h($ticket->subject),
                                         ['action' => 'view_compras', $ticket->id],
-                                        ['style' => 'text-decoration: none; color: var(--gray-900);', 'class' => '']
+                                        ['style' => 'text-decoration: none; color: var(--gray-900);']
                                     ) ?>
                                 <?php else: ?>
                                     <?= $this->Html->link(
                                         h($ticket->subject),
                                         ['action' => 'view', $ticket->id],
-                                        ['style' => 'text-decoration: none; color: var(--gray-900);', 'class' => '']
+                                        ['style' => 'text-decoration: none; color: var(--gray-900);']
                                     ) ?>
                                 <?php endif; ?>
                             </td>
-                            <td class="py-1 text-truncate align-middle small" style="min-width: 150px; max-width: 150px;">
-                                <strong class=""><?= h($ticket->requester->name) ?></strong>
-                                <span class="text-muted" style="font-size: 12px; margin: auto 0">
+
+                            <td class="py-1 text-truncate align-middle small"
+                                style="min-width: 150px; max-width: 150px;">
+                                <strong><?= h($ticket->requester->name) ?></strong>
+                                <span class="text-muted" style="font-size: 12px;">
                                     (<?= h($ticket->requester->email) ?>)
                                 </span>
                             </td>
+
                             <td class="py-1 align-middle small" style="max-width: 150px;">
                                 <?php if ($ticket->assignee_id === 7): ?>
                                     <?= $this->Form->create(null, ['url' => ['action' => 'assign', $ticket->id]]) ?>
@@ -135,7 +138,7 @@ $userId = $user ? $user->get('id') : null;
                                         'empty' => 'Sin asignar',
                                         'class' => 'select2',
                                         'onchange' => 'this.form.submit()',
-                                        'disabled' => 'true'
+                                        'disabled' => true
                                     ]) ?>
                                     <?= $this->Form->end() ?>
                                 <?php else: ?>
@@ -149,6 +152,7 @@ $userId = $user ? $user->get('id') : null;
                                     <?= $this->Form->end() ?>
                                 <?php endif; ?>
                             </td>
+
                             <td class="py-1 align-middle small lh-1">
                                 <?= $this->TimeHuman->short($ticket->created) ?>
                             </td>
@@ -158,8 +162,8 @@ $userId = $user ? $user->get('id') : null;
             </table>
         </div>
 
-        <!-- Pagination -->
         <?= $this->element('pagination') ?>
+
     <?php else: ?>
         <div class="table-container">
             <div style="padding: 40px; text-align: center; color: var(--gray-600);">
@@ -167,4 +171,5 @@ $userId = $user ? $user->get('id') : null;
             </div>
         </div>
     <?php endif; ?>
+
 </div>
