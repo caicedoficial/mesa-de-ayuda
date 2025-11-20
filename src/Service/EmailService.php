@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use Cake\Console\Helper as ConsoleHelper;
 use Cake\Mailer\Mailer;
 use Cake\Mailer\TransportFactory;
 use Cake\ORM\Locator\LocatorAwareTrait;
@@ -47,7 +48,7 @@ class EmailService
                 'ticket_number' => $ticket->ticket_number,
                 'subject' => $ticket->subject,
                 'requester_name' => $ticket->requester->name,
-                'created_date' => $ticket->created->i18nFormat('dd/MM/yyyy HH:mm'),
+                'created_date' => $this->formatDate($ticket->created),
                 'ticket_url' => $this->getTicketUrl($ticket->id),
             ];
 
@@ -107,7 +108,7 @@ class EmailService
                 'old_status' => $oldStatus,
                 'new_status' => $newStatus,
                 'assignee_name' => $ticket->assignee ? $ticket->assignee->name : 'No asignado',
-                'updated_date' => $ticket->modified->i18nFormat('dd/MM/yyyy HH:mm'),
+                'updated_date' => $this->formatDate($ticket->modified),
                 'ticket_url' => $this->getTicketUrl($ticket->id),
             ];
 
@@ -152,9 +153,6 @@ class EmailService
                 }
             }
 
-            // Build email content
-            $subject = "[Ticket #{$ticket->ticket_number}] Nuevo comentario";
-
             // Add attachment list to email body if there are attachments
             $attachmentsList = '';
             if (!empty($commentAttachments)) {
@@ -166,43 +164,34 @@ class EmailService
                 $attachmentsList .= "</ul>";
             }
 
-            $body = "
-            <html>
-            <head>
-                <style>
-                    body { font-family: Arial, sans-serif; color: #333; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background-color: #0066cc; color: white; padding: 20px; text-align: center; }
-                    .content { background-color: #f8f9fa; padding: 20px; margin: 20px 0; }
-                    .comment { background-color: white; padding: 15px; margin: 10px 0; border-left: 4px solid #0066cc; }
-                    .footer { text-align: center; color: #666; font-size: 12px; padding: 20px; }
-                    .button { display: inline-block; background-color: #0066cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
-                </style>
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='header'>
-                        <h2>Nuevo Comentario en tu Ticket</h2>
-                    </div>
-                    <div class='content'>
-                        <p><strong>Ticket:</strong> #{$ticket->ticket_number}</p>
-                        <p><strong>Asunto:</strong> {$ticket->subject}</p>
-                        <p><strong>De:</strong> {$comment->user->name}</p>
-                        <div class='comment'>
-                            {$comment->body}
-                        </div>
-                        {$attachmentsList}
-                        <p style='text-align: center; margin-top: 20px;'>
-                            <a href='{$this->getTicketUrl($ticket->id)}' class='button'>Ver Ticket</a>
-                        </p>
-                    </div>
-                    <div class='footer'>
-                        <p>Sistema de Soporte</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            ";
+            // Get template from database
+            $template = $this->getTemplate('nuevo_comentario');
+            if (!$template) {
+                Log::error('Email template not found: nuevo_comentario');
+                return false;
+            }
+
+            // Replace variables in subject
+            $subject = str_replace('{{ticket_number}}', $ticket->ticket_number, $template->subject);
+
+            // Replace variables in body
+            $body = str_replace([
+                '{{ticket_number}}',
+                '{{subject}}',
+                '{{comment_author}}',
+                '{{comment_body}}',
+                '{{attachments_list}}',
+                '{{ticket_url}}',
+                '{{system_title}}',
+            ], [
+                $ticket->ticket_number,
+                $ticket->subject,
+                $comment->user->name,
+                $comment->body,
+                $attachmentsList,
+                $this->getTicketUrl($ticket->id),
+                'Sistema de Soporte',
+            ], $template->body_html);
 
             // Send email to requester with attachments
             return $this->sendEmail($ticket->requester->email, $subject, $body, $commentAttachments);
@@ -248,6 +237,27 @@ class EmailService
         }
 
         return $template;
+    }
+
+    /**
+     * Format date for email display (consistent with TimeHumanHelper::long)
+     *
+     * @param \DateTimeInterface|null $date Date to format
+     * @return string Formatted date string
+     */
+    private function formatDate(?\DateTimeInterface $date): string
+    {
+        if ($date === null) {
+            return '-';
+        }
+
+        // Convert to DateTime if needed
+        if (!($date instanceof \Cake\I18n\DateTime)) {
+            $date = new \Cake\I18n\DateTime($date);
+        }
+
+        // Format: "18 noviembre, 2:30 pm" (same as TimeHumanHelper::long)
+        return $date->i18nFormat('d MMMM, h:mm a', null, 'es_US');
     }
 
     /**
@@ -299,9 +309,11 @@ class EmailService
 
             // Add attachments if provided
             if (!empty($attachments)) {
+                $attachmentService = new AttachmentService();
                 $attachmentFiles = [];
+
                 foreach ($attachments as $attachment) {
-                    $filePath = WWW_ROOT . 'uploads' . DS . 'attachments' . DS . $attachment->file_path;
+                    $filePath = $attachmentService->getFullPath($attachment);
                     if (file_exists($filePath)) {
                         $attachmentFiles[$attachment->original_filename] = [
                             'file' => $filePath,
@@ -309,6 +321,7 @@ class EmailService
                         ];
                     }
                 }
+
                 if (!empty($attachmentFiles)) {
                     $mailer->setAttachments($attachmentFiles);
                 }
@@ -316,7 +329,7 @@ class EmailService
 
             $mailer->deliver($body);
 
-            Log::info('Email sent successfully', ['to' => $to, 'subject' => $subject, 'attachments' => count($attachments)]);
+            Log::info('Email sent successfully', ['to' => $to, 'subject' => $subject]);
 
             return true;
         } catch (\Exception $e) {
@@ -364,5 +377,199 @@ class EmailService
         }
 
         return $config;
+    }
+
+    /**
+     * Send new PQRS notification to requester
+     *
+     * @param \App\Model\Entity\Pqr $pqrs PQRS entity
+     * @return bool Success status
+     */
+    public function sendNewPqrsNotification($pqrs): bool
+    {
+        try {
+            // Get template from database
+            $template = $this->getTemplate('nuevo_pqrs');
+            if (!$template) {
+                Log::error('Email template not found: nuevo_pqrs');
+                return false;
+            }
+
+            // Map PQRS type to friendly label
+            $typeLabels = [
+                'peticion' => 'Petición',
+                'queja' => 'Queja',
+                'reclamo' => 'Reclamo',
+                'sugerencia' => 'Sugerencia',
+            ];
+
+            // Replace variables in subject
+            $subject = str_replace([
+                '{{pqrs_number}}',
+                '{{subject}}',
+            ], [
+                $pqrs->pqrs_number,
+                $pqrs->subject,
+            ], $template->subject);
+
+            // Replace variables in body
+            $body = str_replace([
+                '{{pqrs_number}}',
+                '{{pqrs_type}}',
+                '{{subject}}',
+                '{{requester_name}}',
+                '{{created_date}}',
+                '{{system_title}}',
+            ], [
+                $pqrs->pqrs_number,
+                $typeLabels[$pqrs->type] ?? ucfirst($pqrs->type),
+                $pqrs->subject,
+                $pqrs->requester_name,
+                $this->formatDate($pqrs->created),
+                'Sistema de Atención al Cliente',
+            ], $template->body_html);
+
+            return $this->sendEmail($pqrs->requester_email, $subject, $body);
+        } catch (\Exception $e) {
+            Log::error('Failed to send new PQRS notification', [
+                'pqrs_id' => $pqrs->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send PQRS status change notification
+     *
+     * @param \App\Model\Entity\Pqr $pqrs PQRS entity
+     * @param string $oldStatus Old status
+     * @param string $newStatus New status
+     * @return bool Success status
+     */
+    public function sendPqrsStatusChangeNotification($pqrs, string $oldStatus, string $newStatus): bool
+    {
+        try {
+            // Get template from database
+            $template = $this->getTemplate('pqrs_estado');
+            if (!$template) {
+                Log::error('Email template not found: pqrs_estado');
+                return false;
+            }
+
+            $statusLabels = [
+                'nuevo' => 'Nuevo',
+                'en_revision' => 'En Revisión',
+                'en_proceso' => 'En Proceso',
+                'resuelto' => 'Resuelto',
+                'cerrado' => 'Cerrado',
+            ];
+
+            $typeLabels = [
+                'peticion' => 'Petición',
+                'queja' => 'Queja',
+                'reclamo' => 'Reclamo',
+                'sugerencia' => 'Sugerencia',
+            ];
+
+            // Build assignee info if there's an assignee
+            $assigneeInfo = '';
+            if (!empty($pqrs->assignee_id)) {
+                $pqrsTable = $this->fetchTable('Pqrs');
+                $pqrsWithAssignee = $pqrsTable->get($pqrs->id, contain: ['Assignees']);
+                if ($pqrsWithAssignee->assignee) {
+                    $assigneeInfo = "<p><strong>Asignado a:</strong> {$pqrsWithAssignee->assignee->name}</p>";
+                }
+            }
+
+            // Replace variables in subject
+            $subject = str_replace('{{pqrs_number}}', $pqrs->pqrs_number, $template->subject);
+
+            // Replace variables in body
+            $body = str_replace([
+                '{{pqrs_number}}',
+                '{{pqrs_type}}',
+                '{{subject}}',
+                '{{requester_name}}',
+                '{{old_status}}',
+                '{{new_status}}',
+                '{{assignee_info}}',
+                '{{system_title}}',
+            ], [
+                $pqrs->pqrs_number,
+                $typeLabels[$pqrs->type] ?? ucfirst($pqrs->type),
+                $pqrs->subject,
+                $pqrs->requester_name,
+                $statusLabels[$oldStatus] ?? ucfirst($oldStatus),
+                $statusLabels[$newStatus] ?? ucfirst($newStatus),
+                $assigneeInfo,
+                'Sistema de Atención al Cliente',
+            ], $template->body_html);
+
+            return $this->sendEmail($pqrs->requester_email, $subject, $body);
+        } catch (\Exception $e) {
+            Log::error('Failed to send PQRS status change notification', [
+                'pqrs_id' => $pqrs->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Send PQRS new comment notification
+     *
+     * @param \App\Model\Entity\Pqr $pqrs PQRS entity
+     * @param \App\Model\Entity\PqrsComment $comment Comment entity
+     * @return bool Success status
+     */
+    public function sendPqrsNewCommentNotification($pqrs, $comment): bool
+    {
+        try {
+            // Only send for public comments
+            if ($comment->comment_type !== 'public') {
+                return true;
+            }
+
+            // Get template from database
+            $template = $this->getTemplate('pqrs_comentario');
+            if (!$template) {
+                Log::error('Email template not found: pqrs_comentario');
+                return false;
+            }
+
+            // Load comment with user
+            $commentsTable = $this->fetchTable('PqrsComments');
+            $comment = $commentsTable->get($comment->id, contain: ['Users']);
+
+            $author = $comment->user ? $comment->user->name : 'Sistema';
+
+            // Replace variables in subject
+            $subject = str_replace('{{pqrs_number}}', $pqrs->pqrs_number, $template->subject);
+
+            // Replace variables in body
+            $body = str_replace([
+                '{{pqrs_number}}',
+                '{{subject}}',
+                '{{comment_author}}',
+                '{{comment_body}}',
+                '{{system_title}}',
+            ], [
+                $pqrs->pqrs_number,
+                $pqrs->subject,
+                $author,
+                $comment->body,
+                'Sistema de Atención al Cliente',
+            ], $template->body_html);
+
+            return $this->sendEmail($pqrs->requester_email, $subject, $body);
+        } catch (\Exception $e) {
+            Log::error('Failed to send PQRS comment notification', [
+                'pqrs_id' => $pqrs->id,
+                'comment_id' => $comment->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 }

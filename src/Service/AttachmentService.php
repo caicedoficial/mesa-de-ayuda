@@ -34,13 +34,13 @@ class AttachmentService
         'webp' => ['image/webp'],
 
         // Documents
-        'pdf' => ['application/pdf'],
-        'doc' => ['application/msword'],
-        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-        'xls' => ['application/vnd.ms-excel'],
-        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-        'ppt' => ['application/vnd.ms-powerpoint'],
-        'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+        'pdf' => ['application/pdf', 'application/octet-stream'],
+        'doc' => ['application/msword', 'application/octet-stream'],
+        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/octet-stream'],
+        'xls' => ['application/vnd.ms-excel', 'application/octet-stream'],
+        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/octet-stream'],
+        'ppt' => ['application/vnd.ms-powerpoint', 'application/octet-stream'],
+        'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'application/octet-stream'],
 
         // Text
         'txt' => ['text/plain'],
@@ -283,10 +283,10 @@ class AttachmentService
 
         // Additional security: verify actual MIME type from file content
         $tempPath = $uploadedFile->getStream()->getMetadata('uri');
-        if ($tempPath && !$this->verifyMimeTypeFromContent($tempPath, $mimeType)) {
-            Log::error('MIME type mismatch detected', [
+        if ($tempPath && !$this->verifyMimeTypeFromContent($tempPath, $mimeType, $filename)) {
+            Log::error('File validation failed: MIME type mismatch', [
                 'filename' => $filename,
-                'claimed_mime' => $mimeType,
+                'mime_type' => $mimeType,
             ]);
             return null;
         }
@@ -309,8 +309,11 @@ class AttachmentService
 
         try {
             $uploadedFile->moveTo($fullPath);
-        } catch (\Exception $e) {
-            Log::error('Failed to move uploaded file', ['error' => $e->getMessage()]);
+        } catch (\Exception $exception) {
+            Log::error('Failed to move uploaded file', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString()
+            ]);
             return null;
         }
 
@@ -425,11 +428,12 @@ class AttachmentService
     /**
      * Verify MIME type from actual file content using finfo
      *
-     * @param string $filePath Path to file
+     * @param string $filePath Path to file (temporary file)
      * @param string $claimedMime Claimed MIME type
+     * @param string $originalFilename Original filename with extension
      * @return bool True if matches
      */
-    private function verifyMimeTypeFromContent(string $filePath, string $claimedMime): bool
+    private function verifyMimeTypeFromContent(string $filePath, string $claimedMime, string $originalFilename): bool
     {
         if (!file_exists($filePath)) {
             return false;
@@ -438,7 +442,6 @@ class AttachmentService
         // Use finfo to detect actual MIME type
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         if ($finfo === false) {
-            Log::warning('finfo_open failed, skipping MIME verification');
             return true; // Fail open if finfo not available
         }
 
@@ -446,21 +449,33 @@ class AttachmentService
         finfo_close($finfo);
 
         if ($actualMime === false) {
-            Log::warning('finfo_file failed', ['path' => $filePath]);
             return true; // Fail open
         }
 
-        // Check if actual MIME matches claimed MIME
-        // Some files may report slightly different MIME types, so we're flexible
-        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        // Get extension from ORIGINAL filename, not temp file path
+        $extension = strtolower(pathinfo($originalFilename, PATHINFO_EXTENSION));
         if (!isset(self::ALLOWED_TYPES[$extension])) {
             return false;
         }
 
         $allowedMimes = self::ALLOWED_TYPES[$extension];
 
-        // Allow if actual MIME is in the allowed list for this extension
-        return in_array($actualMime, $allowedMimes);
+        // Direct match - ideal case
+        if (in_array($actualMime, $allowedMimes)) {
+            return true;
+        }
+
+        // Special cases: Modern Office files (docx, xlsx, pptx) are ZIP archives
+        if ($actualMime === 'application/zip' && in_array($extension, ['docx', 'xlsx', 'pptx'])) {
+            return true;
+        }
+
+        // Allow claimed MIME if it's in the allowed list for this extension
+        if (in_array($claimedMime, $allowedMimes)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

@@ -24,6 +24,7 @@ class TicketService
 
     private AttachmentService $attachmentService;
     private EmailService $emailService;
+    private WhatsappService $whatsappService;
 
     /**
      * Constructor
@@ -32,6 +33,7 @@ class TicketService
     {
         $this->attachmentService = new AttachmentService();
         $this->emailService = new EmailService();
+        $this->whatsappService = new WhatsappService();
     }
 
     /**
@@ -117,6 +119,9 @@ class TicketService
 
         // Send notification to requester
         $this->emailService->sendNewTicketNotification($ticket);
+
+        // Send WhatsApp notification
+        $this->whatsappService->sendNewTicketNotification($ticket);
 
         Log::info('Created ticket from email', [
             'ticket_id' => $ticket->id,
@@ -406,8 +411,9 @@ class TicketService
             $this->addComment($ticket->id, $userId, $comment, 'public', false);
         }
 
-        // Send notification
+        // Send notifications
         $this->emailService->sendStatusChangeNotification($ticket, $oldStatus, $newStatus);
+        $this->whatsappService->sendStatusChangeNotification($ticket, $oldStatus, $newStatus);
 
         Log::info('Ticket status changed', [
             'ticket_id' => $ticket->id,
@@ -426,9 +432,10 @@ class TicketService
      * @param string $body Comment body (HTML)
      * @param string $type Comment type (public, internal)
      * @param bool $isSystem Is system comment
+     * @param bool $sendNotifications Whether to send email/whatsapp notifications (default: false, caller must call sendCommentNotifications)
      * @return \App\Model\Entity\TicketComment|null
      */
-    public function addComment(int $ticketId, int $userId, string $body, string $type = 'public', bool $isSystem = false): ?\App\Model\Entity\TicketComment
+    public function addComment(int $ticketId, int $userId, string $body, string $type = 'public', bool $isSystem = false, bool $sendNotifications = false): ?\App\Model\Entity\TicketComment
     {
         $commentsTable = $this->fetchTable('TicketComments');
 
@@ -446,10 +453,11 @@ class TicketService
         ]);
 
         if ($commentsTable->save($comment)) {
-            // Send notification for public comments
-            if ($type === 'public' && !$isSystem) {
+            // Only send notifications if explicitly requested (for backwards compatibility with status changes)
+            if ($sendNotifications && $type === 'public' && !$isSystem) {
                 $ticket = $this->fetchTable('Tickets')->get($ticketId, contain: ['Requesters']);
                 $this->emailService->sendNewCommentNotification($ticket, $comment);
+                $this->whatsappService->sendNewCommentNotification($ticket, $comment);
             }
 
             return $comment;
@@ -457,6 +465,40 @@ class TicketService
 
         Log::error('Failed to add comment', ['ticket_id' => $ticketId, 'errors' => $comment->getErrors()]);
         return null;
+    }
+
+    /**
+     * Send notifications for a comment (call this AFTER attachments are processed)
+     *
+     * @param int $ticketId Ticket ID
+     * @param int $commentId Comment ID
+     * @return bool Success status
+     */
+    public function sendCommentNotifications(int $ticketId, int $commentId): bool
+    {
+        try {
+            $commentsTable = $this->fetchTable('TicketComments');
+            $comment = $commentsTable->get($commentId);
+
+            // Only send for public, non-system comments
+            if ($comment->comment_type === 'public' && !$comment->is_system_comment) {
+                $ticket = $this->fetchTable('Tickets')->get($ticketId, contain: ['Requesters', 'Attachments']);
+
+                $this->emailService->sendNewCommentNotification($ticket, $comment);
+                $this->whatsappService->sendNewCommentNotification($ticket, $comment);
+
+                return true;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to send comment notifications', [
+                'ticket_id' => $ticketId,
+                'comment_id' => $commentId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 
     /**
