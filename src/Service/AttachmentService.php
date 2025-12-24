@@ -11,6 +11,22 @@ use Cake\Http\Exception\NotFoundException;
 /**
  * Attachment Service
  *
+ * @deprecated This service is deprecated as of December 2024.
+ *             Use GenericAttachmentTrait instead (src/Service/Traits/GenericAttachmentTrait.php).
+ *
+ * Migration guide:
+ * - Add `use \App\Service\Traits\GenericAttachmentTrait;` to your service class
+ * - Replace `AttachmentService::saveUploadedFile()` with `GenericAttachmentTrait::saveGenericUploadedFile()`
+ * - Replace `AttachmentService::getFullPath()` with `GenericAttachmentTrait::getFullPath()`
+ * - Replace `AttachmentService::getWebUrl()` with `GenericAttachmentTrait::getWebUrl()`
+ * - For profile images, use `UsersTable::saveProfileImage()` instead
+ *
+ * All functionality has been migrated to:
+ * - GenericAttachmentTrait: File uploads, validation, and path handling
+ * - UsersTable: Profile image management
+ *
+ * This file is kept for reference only and will be removed in a future version.
+ *
  * Handles file attachment operations:
  * - Saving attachments from emails
  * - Saving uploaded files
@@ -581,5 +597,113 @@ class AttachmentService
     public function getWebUrl($attachment): string
     {
         return '/' . self::UPLOAD_DIR . str_replace(DS, '/', $attachment->file_path);
+    }
+
+    /**
+     * Save profile image for a user
+     *
+     * @param int $userId User ID
+     * @param \Laminas\Diactoros\UploadedFile $uploadedFile Uploaded file
+     * @return array Result with success status and filename or error message
+     */
+    public function saveProfileImage(int $userId, $uploadedFile): array
+    {
+        if ($uploadedFile->getError() !== UPLOAD_ERR_OK) {
+            Log::error('Profile image upload error', ['error' => $uploadedFile->getError()]);
+            return ['success' => false, 'message' => 'Error al subir el archivo'];
+        }
+
+        $filename = $this->sanitizeFilename($uploadedFile->getClientFilename());
+        $mimeType = $uploadedFile->getClientMediaType();
+        $size = $uploadedFile->getSize();
+
+        // Only allow images
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $allowedImageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+        if (!in_array($extension, $allowedImageExtensions)) {
+            return ['success' => false, 'message' => 'Solo se permiten imágenes (JPG, PNG, GIF, WEBP)'];
+        }
+
+        // Check file size (max 2MB for profile images)
+        if ($size > 2097152) {
+            return ['success' => false, 'message' => 'La imagen no debe superar 2MB'];
+        }
+
+        // Verify actual MIME type from file content
+        $tempPath = $uploadedFile->getStream()->getMetadata('uri');
+        if ($tempPath && !$this->verifyMimeTypeFromContent($tempPath, $mimeType, $filename)) {
+            return ['success' => false, 'message' => 'Tipo de archivo no válido'];
+        }
+
+        // Create profile images directory if it doesn't exist
+        $uploadDir = WWW_ROOT . 'uploads' . DS . 'profile_images' . DS;
+        if (!is_dir($uploadDir)) {
+            if (!mkdir($uploadDir, 0755, true)) {
+                Log::error('Failed to create profile images directory', ['dir' => $uploadDir]);
+                return ['success' => false, 'message' => 'Error al crear directorio de imágenes'];
+            }
+        }
+
+        // Generate unique filename
+        $uniqueFilename = 'user_' . $userId . '_' . Text::uuid() . '.' . $extension;
+        $fullPath = $uploadDir . $uniqueFilename;
+        $relativePath = 'uploads/profile_images/' . $uniqueFilename;
+
+        // Move uploaded file
+        try {
+            $uploadedFile->moveTo($fullPath);
+        } catch (\Exception $e) {
+            Log::error('Failed to save profile image', [
+                'error' => $e->getMessage(),
+                'path' => $fullPath,
+            ]);
+            return ['success' => false, 'message' => 'Error al guardar la imagen'];
+        }
+
+        // Delete old profile image if exists
+        $usersTable = $this->fetchTable('Users');
+        $user = $usersTable->get($userId);
+        if ($user->profile_image) {
+            $this->deleteProfileImage($user->profile_image);
+        }
+
+        return ['success' => true, 'filename' => $relativePath];
+    }
+
+    /**
+     * Delete a profile image file
+     *
+     * @param string $filename Relative path to the profile image
+     * @return bool Success status
+     */
+    public function deleteProfileImage(string $filename): bool
+    {
+        if (empty($filename)) {
+            return false;
+        }
+
+        $fullPath = WWW_ROOT . $filename;
+        if (file_exists($fullPath)) {
+            return @unlink($fullPath);
+        }
+
+        return false;
+    }
+
+    /**
+     * Get profile image URL with fallback to default avatar
+     *
+     * @param string|null $profileImage Profile image path
+     * @return string URL to profile image or default avatar
+     */
+    public function getProfileImageUrl(?string $profileImage): string
+    {
+        if ($profileImage && file_exists(WWW_ROOT . $profileImage)) {
+            return '/' . str_replace(DS, '/', $profileImage);
+        }
+
+        // Return default avatar
+        return '/img/default-avatar.png';
     }
 }

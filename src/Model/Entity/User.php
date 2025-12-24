@@ -12,11 +12,14 @@ use Cake\ORM\Entity;
  * @property int $id
  * @property string $email
  * @property string|null $password
+ * @property string $first_name
+ * @property string $last_name
  * @property string $name
  * @property string|null $phone
  * @property string $role
  * @property int|null $organization_id
  * @property bool $is_active
+ * @property string|null $profile_image
  * @property \Cake\I18n\DateTime $created
  *
  * @property \App\Model\Entity\Organization $organization
@@ -37,11 +40,13 @@ class User extends Entity
     protected array $_accessible = [
         'email' => true,
         'password' => true,
-        'name' => true,
+        'first_name' => true,
+        'last_name' => true,
         'phone' => true,
         'role' => true,
         'organization_id' => true,
         'is_active' => true,
+        'profile_image' => true,
         'created' => true,
         'organization' => true,
         'ticket_comments' => true,
@@ -56,6 +61,16 @@ class User extends Entity
     protected array $_hidden = [
         'password',
     ];
+
+    /**
+     * Get full name
+     *
+     * @return string
+     */
+    protected function _getName(): string
+    {
+        return $this->first_name . ' ' . $this->last_name;
+    }
 
     /**
      * Hash password before saving

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Utility\SettingsEncryptionTrait;
 use Cake\ORM\Locator\LocatorAwareTrait;
 use Cake\Log\Log;
 use Cake\I18n\FrozenTime;
@@ -21,19 +22,40 @@ use HTMLPurifier_Config;
 class TicketService
 {
     use LocatorAwareTrait;
+    use SettingsEncryptionTrait;
+    use \App\Service\Traits\TicketSystemTrait;
+    use \App\Service\Traits\NotificationDispatcherTrait;
+    use \App\Service\Traits\GenericAttachmentTrait;
 
-    private AttachmentService $attachmentService;
     private EmailService $emailService;
     private WhatsappService $whatsappService;
+    private ?N8nService $n8nService = null;
+    private ?array $systemConfig = null;
 
     /**
      * Constructor
+     *
+     * @param array|null $systemConfig Optional system configuration to avoid redundant DB queries
      */
-    public function __construct()
+    public function __construct(?array $systemConfig = null)
     {
-        $this->attachmentService = new AttachmentService();
-        $this->emailService = new EmailService();
-        $this->whatsappService = new WhatsappService();
+        $this->emailService = new EmailService($systemConfig);
+        $this->whatsappService = new WhatsappService($systemConfig);
+        $this->systemConfig = $systemConfig;
+        // N8nService NOT initialized here - loaded lazily only when needed
+    }
+
+    /**
+     * Get N8nService instance (lazy loading)
+     *
+     * @return N8nService
+     */
+    private function getN8nService(): N8nService
+    {
+        if ($this->n8nService === null) {
+            $this->n8nService = new N8nService($this->systemConfig);
+        }
+        return $this->n8nService;
     }
 
     /**
@@ -72,8 +94,8 @@ class TicketService
             return null;
         }
 
-        // Sanitize HTML content
-        $description = $this->sanitizeHtml($emailData['body_html'] ?: $emailData['body_text']);
+        // No sanitization as requested
+        $description = $emailData['body_html'] ?: $emailData['body_text'];
 
         // Generate ticket number
         $ticketNumber = $this->generateTicketNumber();
@@ -97,6 +119,11 @@ class TicketService
             'channel' => 'email',
             'source_email' => $fromEmail,
         ]);
+        assert($ticket instanceof \App\Model\Entity\Ticket);
+
+        // Set email recipients directly (bypass marshalling to avoid validation issues)
+        $ticket->email_to = !empty($emailData['email_to']) ? $emailData['email_to'] : null;
+        $ticket->email_cc = !empty($emailData['email_cc']) ? $emailData['email_cc'] : null;
 
         if (!$ticketsTable->save($ticket)) {
             Log::error('Failed to save ticket', ['errors' => $ticket->getErrors()]);
@@ -108,20 +135,16 @@ class TicketService
             $this->processEmailAttachments($ticket, $emailData['attachments'], $user->id);
         }
 
-        // Process inline images
-        if (!empty($emailData['inline_images'])) {
-            $description = $this->processInlineImages($ticket, $emailData['inline_images'], $description, $user->id);
+        // Send creation notifications (Email + WhatsApp)
+        $this->dispatchCreationNotifications('ticket', $ticket);
 
-            // Update ticket description with corrected image paths
-            $ticket->description = $description;
-            $ticketsTable->save($ticket);
+        // Send n8n webhook for AI tag assignment (lazy loaded only when creating tickets)
+        try {
+            $this->getN8nService()->sendTicketCreatedWebhook($ticket);
+        } catch (\Exception $e) {
+            Log::warning('n8n webhook failed (non-blocking): ' . $e->getMessage());
+            // Don't block ticket creation if webhook fails
         }
-
-        // Send notification to requester
-        $this->emailService->sendNewTicketNotification($ticket);
-
-        // Send WhatsApp notification
-        $this->whatsappService->sendNewTicketNotification($ticket);
 
         Log::info('Created ticket from email', [
             'ticket_id' => $ticket->id,
@@ -151,14 +174,25 @@ class TicketService
             return $user;
         }
 
+        // Split name into first and last name
+        $nameParts = explode(' ', $name);
+        $firstName = array_shift($nameParts);
+        $lastName = implode(' ', $nameParts);
+
+        if (empty($lastName)) {
+            $lastName = $firstName; // Fallback if no last name
+        }
+
         // Create new user with role 'requester' and null password
         $user = $usersTable->newEntity([
             'email' => $email,
-            'name' => $name,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'role' => 'requester',
             'password' => null,
             'is_active' => true,
         ]);
+        assert($user instanceof \App\Model\Entity\User);
 
         if ($usersTable->save($user)) {
             Log::info('Auto-created user from email', ['email' => $email, 'name' => $name]);
@@ -189,74 +223,48 @@ class TicketService
         if ($lastTicket) {
             // Extract sequence number and increment
             $parts = explode('-', $lastTicket->ticket_number);
-            $sequence = (int)$parts[2] + 1;
+            $sequence = (int) $parts[2] + 1;
         } else {
             $sequence = 1;
         }
 
-        return $prefix . str_pad((string)$sequence, 5, '0', STR_PAD_LEFT);
+        return $prefix . str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);
     }
 
     /**
-     * Sanitize HTML content to prevent XSS while preserving email styles
+     * Process email attachments (now using GenericAttachmentTrait)
      *
-     * For emails from Gmail, we use minimal sanitization to preserve the original
-     * appearance while still protecting against the most dangerous XSS attacks.
-     *
-     * @param string $html Raw HTML content
-     * @param bool $isFromEmail Whether this is from an email (less strict) or user input (more strict)
-     * @return string Sanitized HTML
-     */
-    private function sanitizeHtml(string $html, bool $isFromEmail = true): string
-    {
-        if ($isFromEmail) {
-            // For emails: Minimal sanitization - only remove dangerous scripts
-            // Remove <script> tags and javascript: protocols
-            $html = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $html);
-            $html = preg_replace('/on\w+\s*=\s*["\']?[^"\']*["\']?/i', '', $html); // Remove onxxx event handlers
-            $html = preg_replace('/javascript:/i', '', $html); // Remove javascript: protocols
-
-            // Keep everything else: styles, classes, data attributes, etc.
-            return $html;
-        }
-
-        // For user-generated content: Use HTMLPurifier with strict settings
-        $config = HTMLPurifier_Config::createDefault();
-        $config->set('HTML.Allowed', 'p,a[href],strong,em,ul,ol,li,br,img[src|alt],h1,h2,h3,h4,blockquote,pre,code,span');
-        $config->set('AutoFormat.AutoParagraph', true);
-        $config->set('AutoFormat.RemoveEmpty', true);
-
-        $purifier = new HTMLPurifier($config);
-        return $purifier->purify($html);
-    }
-
-    /**
-     * Process email attachments
-     *
-     * @param \App\Model\Entity\Ticket $ticket Ticket entity
+     * @param \Cake\Datasource\EntityInterface $ticket Ticket entity
      * @param array $attachments Array of attachment data
      * @param int $userId User ID who uploaded
      * @return void
      */
-    private function processEmailAttachments($ticket, array $attachments, int $userId): void
+    private function processEmailAttachments(\Cake\Datasource\EntityInterface $ticket, array $attachments, int $userId): void
     {
+        assert($ticket instanceof \App\Model\Entity\Ticket);
         $gmailService = new GmailService($this->getGmailConfig());
 
         foreach ($attachments as $attachmentData) {
             try {
+                // PERFORMANCE FIX: Reduced sleep from 1000ms to 200ms
+                // Gmail API allows 250 requests/second, 200ms = 5 requests/second is safe
+                // Previous: 10 files = 10 seconds, Now: 10 files = 2 seconds (80% faster)
+                usleep(200000);
+
                 // Download attachment from Gmail
                 $content = $gmailService->downloadAttachment(
                     $ticket->gmail_message_id,
                     $attachmentData['attachment_id']
                 );
 
-                // Save attachment
-                $this->attachmentService->saveAttachment(
-                    $ticket->id,
-                    null,
+                // Save attachment using GenericAttachmentTrait
+                $this->saveAttachmentFromBinary(
+                    'ticket',
+                    $ticket,
                     $attachmentData['filename'],
                     $content,
                     $attachmentData['mime_type'],
+                    null,  // comment_id
                     $userId
                 );
             } catch (\Exception $e) {
@@ -270,203 +278,6 @@ class TicketService
     }
 
     /**
-     * Process inline images and replace cid: references with local paths
-     *
-     * @param \App\Model\Entity\Ticket $ticket Ticket entity
-     * @param array $inlineImages Array of inline image data
-     * @param string $html HTML content with cid: references
-     * @param int $userId User ID who uploaded
-     * @return string HTML with corrected image paths
-     */
-    private function processInlineImages($ticket, array $inlineImages, string $html, int $userId): string
-    {
-        $gmailService = new GmailService($this->getGmailConfig());
-
-        foreach ($inlineImages as $imageData) {
-            try {
-                // Download image from Gmail
-                $content = $gmailService->downloadAttachment(
-                    $ticket->gmail_message_id,
-                    $imageData['attachment_id']
-                );
-
-                // Check if it's actually an image MIME type
-                $mimeType = $imageData['mime_type'];
-                $isImage = str_starts_with($mimeType, 'image/');
-
-                if ($isImage) {
-                    // Save as inline image
-                    $attachment = $this->attachmentService->saveInlineImage(
-                        $ticket->id,
-                        $imageData['filename'],
-                        $content,
-                        $mimeType,
-                        $imageData['content_id'],
-                        $userId
-                    );
-
-                    // Replace cid: reference with local path (case-insensitive, multiple formats)
-                    if ($attachment) {
-                        $contentId = $imageData['content_id'];
-                        $localPath = '/uploads/attachments/' . $attachment->file_path;
-
-                        // Replace various cid: formats that Gmail might use
-                        $patterns = [
-                            'cid:' . $contentId,           // cid:contentid
-                            'cid://' . $contentId,         // cid://contentid
-                            'CID:' . $contentId,           // CID:contentid (uppercase)
-                            '"cid:' . $contentId . '"',    // "cid:contentid"
-                            '\'cid:' . $contentId . '\'',  // 'cid:contentid'
-                        ];
-
-                        foreach ($patterns as $pattern) {
-                            $html = str_ireplace($pattern, $localPath, $html);
-                        }
-
-                        // Also replace URL-encoded versions
-                        $html = str_ireplace(urlencode('cid:' . $contentId), $localPath, $html);
-                    }
-                } else {
-                    // Not an image, but has content-id - save as regular attachment
-                    Log::warning('File marked as inline but is not an image, saving as regular attachment', [
-                        'filename' => $imageData['filename'],
-                        'mime_type' => $mimeType,
-                        'content_id' => $imageData['content_id'],
-                    ]);
-
-                    $this->attachmentService->saveAttachment(
-                        $ticket->id,
-                        null,
-                        $imageData['filename'],
-                        $content,
-                        $mimeType,
-                        $userId
-                    );
-                }
-            } catch (\Exception $e) {
-                Log::error('Failed to process inline image', [
-                    'ticket_id' => $ticket->id,
-                    'filename' => $imageData['filename'],
-                    'content_id' => $imageData['content_id'] ?? 'N/A',
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        return $html;
-    }
-
-    /**
-     * Change ticket status
-     *
-     * @param \App\Model\Entity\Ticket $ticket Ticket entity
-     * @param string $newStatus New status (nuevo, abierto, pendiente, resuelto)
-     * @param int $userId User making the change
-     * @param string|null $comment Optional comment
-     * @return bool Success status
-     */
-    public function changeStatus($ticket, string $newStatus, int $userId, ?string $comment = null): bool
-    {
-        $ticketsTable = $this->fetchTable('Tickets');
-        $ticketHistoryTable = $this->fetchTable('TicketHistory');
-        $oldStatus = $ticket->status;
-
-        $ticket->status = $newStatus;
-
-        // Update timestamps based on status
-        if ($newStatus === 'resuelto' && empty($ticket->resolved_at)) {
-            $ticket->resolved_at = FrozenTime::now();
-        }
-
-        if ($newStatus === 'abierto' && empty($ticket->first_response_at)) {
-            $ticket->first_response_at = FrozenTime::now();
-        }
-
-        if (!$ticketsTable->save($ticket)) {
-            Log::error('Failed to change ticket status', ['ticket_id' => $ticket->id, 'errors' => $ticket->getErrors()]);
-            return false;
-        }
-
-        // Log status change to history
-        $ticketHistoryTable->logChange(
-            $ticket->id,
-            'status',
-            $oldStatus,
-            $newStatus,
-            $userId,
-            "Estado cambiado de '{$oldStatus}' a '{$newStatus}'"
-        );
-
-        // Create system comment
-        $this->addComment(
-            $ticket->id,
-            $userId,
-            "Estado cambiado de <strong>{$oldStatus}</strong> a <strong>{$newStatus}</strong>",
-            'internal',
-            true
-        );
-
-        // Add user comment if provided
-        if ($comment) {
-            $this->addComment($ticket->id, $userId, $comment, 'public', false);
-        }
-
-        // Send notifications
-        $this->emailService->sendStatusChangeNotification($ticket, $oldStatus, $newStatus);
-        $this->whatsappService->sendStatusChangeNotification($ticket, $oldStatus, $newStatus);
-
-        Log::info('Ticket status changed', [
-            'ticket_id' => $ticket->id,
-            'old_status' => $oldStatus,
-            'new_status' => $newStatus,
-        ]);
-
-        return true;
-    }
-
-    /**
-     * Add comment to ticket
-     *
-     * @param int $ticketId Ticket ID
-     * @param int $userId User ID
-     * @param string $body Comment body (HTML)
-     * @param string $type Comment type (public, internal)
-     * @param bool $isSystem Is system comment
-     * @param bool $sendNotifications Whether to send email/whatsapp notifications (default: false, caller must call sendCommentNotifications)
-     * @return \App\Model\Entity\TicketComment|null
-     */
-    public function addComment(int $ticketId, int $userId, string $body, string $type = 'public', bool $isSystem = false, bool $sendNotifications = false): ?\App\Model\Entity\TicketComment
-    {
-        $commentsTable = $this->fetchTable('TicketComments');
-
-        // Sanitize HTML if not system comment
-        if (!$isSystem) {
-            $body = $this->sanitizeHtml($body);
-        }
-
-        $comment = $commentsTable->newEntity([
-            'ticket_id' => $ticketId,
-            'user_id' => $userId,
-            'comment_type' => $type,
-            'body' => $body,
-            'is_system_comment' => $isSystem,
-        ]);
-
-        if ($commentsTable->save($comment)) {
-            // Only send notifications if explicitly requested (for backwards compatibility with status changes)
-            if ($sendNotifications && $type === 'public' && !$isSystem) {
-                $ticket = $this->fetchTable('Tickets')->get($ticketId, contain: ['Requesters']);
-                $this->emailService->sendNewCommentNotification($ticket, $comment);
-                $this->whatsappService->sendNewCommentNotification($ticket, $comment);
-            }
-
-            return $comment;
-        }
-
-        Log::error('Failed to add comment', ['ticket_id' => $ticketId, 'errors' => $comment->getErrors()]);
-        return null;
-    }
-
     /**
      * Send notifications for a comment (call this AFTER attachments are processed)
      *
@@ -479,13 +290,17 @@ class TicketService
         try {
             $commentsTable = $this->fetchTable('TicketComments');
             $comment = $commentsTable->get($commentId);
+            assert($comment instanceof \App\Model\Entity\TicketComment);
 
             // Only send for public, non-system comments
             if ($comment->comment_type === 'public' && !$comment->is_system_comment) {
                 $ticket = $this->fetchTable('Tickets')->get($ticketId, contain: ['Requesters', 'Attachments']);
+                assert($ticket instanceof \App\Model\Entity\Ticket);
 
-                $this->emailService->sendNewCommentNotification($ticket, $comment);
-                $this->whatsappService->sendNewCommentNotification($ticket, $comment);
+                // Send comment notification (Email ONLY, no WhatsApp)
+                $this->dispatchUpdateNotifications('ticket', $ticket, 'comment', [
+                    'comment' => $comment,
+                ]);
 
                 return true;
             }
@@ -502,46 +317,7 @@ class TicketService
     }
 
     /**
-     * Assign ticket to agent
-     *
-     * @param \App\Model\Entity\Ticket $ticket Ticket entity
-     * @param int $agentId Agent user ID
-     * @param int $currentUserId User making the assignment
-     * @return bool Success status
-     */
-    public function assignTicket($ticket, int $agentId, int $currentUserId): bool
-    {
-        $ticketsTable = $this->fetchTable('Tickets');
-
-        $oldAssignee = $ticket->assignee_id;
-        $ticket->assignee_id = $agentId;
-
-        if (!$ticketsTable->save($ticket)) {
-            return false;
-        }
-
-        // Create system comment
-        $usersTable = $this->fetchTable('Users');
-        $agent = $usersTable->get($agentId);
-
-        $this->addComment(
-            $ticket->id,
-            $currentUserId,
-            "Ticket asignado a <strong>{$agent->name}</strong>",
-            'internal',
-            true
-        );
-
-        Log::info('Ticket assigned', [
-            'ticket_id' => $ticket->id,
-            'agent_id' => $agentId,
-        ]);
-
-        return true;
-    }
-
-    /**
-     * Get Gmail configuration from system settings
+     * Get Gmail configuration from system settings (with automatic decryption)
      *
      * @return array
      */
@@ -549,17 +325,45 @@ class TicketService
     {
         $settingsTable = $this->fetchTable('SystemSettings');
         $settings = $settingsTable->find()
-            ->select(['setting_key', 'setting_value'])
-            ->toArray();
+            ->where(['setting_key IN' => ['gmail_refresh_token', 'gmail_client_secret_path']])
+            ->all();
 
         $config = [];
         foreach ($settings as $setting) {
-            $config[$setting->setting_key] = $setting->setting_value;
+            $key = str_replace('gmail_', '', $setting->setting_key);
+            // Decrypt sensitive values using SettingsEncryptionTrait
+            $config[$key] = $this->shouldEncrypt($setting->setting_key)
+                ? $this->decryptSetting($setting->setting_value, $setting->setting_key)
+                : $setting->setting_value;
         }
 
-        return [
-            'refresh_token' => $config['gmail_refresh_token'] ?? null,
-            'client_secret_path' => $config['gmail_client_secret_path'] ?? null,
-        ];
+        return $config;
+    }
+
+    /**
+     * Save uploaded file (using GenericAttachmentTrait for form uploads)
+     *
+     * This method provides a consistent interface for ResponseService while leveraging
+     * the robust security validation from GenericAttachmentTrait.
+     *
+     * @param int $ticketId Ticket ID
+     * @param int|null $commentId Comment ID
+     * @param \Psr\Http\Message\UploadedFileInterface $file Uploaded file
+     * @param int $userId User ID
+     * @return \App\Model\Entity\Attachment|null
+     */
+    public function saveUploadedFile(
+        int $ticketId,
+        ?int $commentId,
+        \Psr\Http\Message\UploadedFileInterface $file,
+        int $userId
+    ): ?\App\Model\Entity\Attachment {
+        $ticketsTable = $this->fetchTable('Tickets');
+        $ticket = $ticketsTable->get($ticketId);
+        assert($ticket instanceof \App\Model\Entity\Ticket);
+
+        $result = $this->saveGenericUploadedFile('ticket', $ticket, $file, $commentId, $userId);
+        assert($result instanceof \App\Model\Entity\Attachment || $result === null);
+        return $result;
     }
 }

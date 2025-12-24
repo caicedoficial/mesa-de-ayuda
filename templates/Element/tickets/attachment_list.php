@@ -31,25 +31,27 @@ $iconMap = [
 ?>
 
 <?php if (!empty($attachments)): ?>
-    <div class="mt-3 pt-3 border-top">
+    <div class="mt-2">
         <strong class="d-block mb-2 small text-muted">Adjuntos:</strong>
         <div class="d-flex flex-wrap gap-2">
             <?php foreach ($attachments as $attachment): ?>
                 <?php
-                $ext = strtolower(pathinfo($attachment->original_filename, PATHINFO_EXTENSION));
+                // Use original_filename for display, fallback to filename if not available
+                $displayName = $attachment->original_filename ?? $attachment->filename;
+                $ext = strtolower(pathinfo($displayName, PATHINFO_EXTENSION));
                 $icon = $iconMap[$ext]['icon'] ?? 'bi-file-earmark';
                 $color = $iconMap[$ext]['color'] ?? 'text-secondary';
                 $sizeKB = number_format($attachment->file_size / 1024, 1);
                 ?>
                 <?= $this->Html->link(
                     '<i class="bi ' . $icon . ' ' . $color . ' fs-5 me-1"></i> ' .
-                    '<span class="small">' . h($attachment->original_filename) . '</span> ' .
+                    '<span class="small text-secondary">' . h($displayName) . '</span> ' .
                     '<span class="badge bg-light text-dark border">' . $sizeKB . ' KB</span>',
                     ['action' => 'downloadAttachment', $attachment->id],
                     [
-                        'class' => 'd-flex align-items-center gap-1 px-3 py-2 border rounded text-decoration-none bg-white hover-bg-light',
+                        'class' => 'd-flex align-items-center gap-1 px-3 py-2 border rounded text-decoration-none bg-white',
                         'escape' => false,
-                        'title' => 'Descargar ' . h($attachment->original_filename)
+                        'title' => 'Descargar ' . h($displayName)
                     ]
                 ) ?>
             <?php endforeach; ?>

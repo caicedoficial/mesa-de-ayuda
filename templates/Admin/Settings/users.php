@@ -5,18 +5,18 @@
  */
 $this->assign('title', 'Usuarios');
 ?>
-<div class="py-5" style="margin: 0 auto;">
-    <div class="mb-5" style="max-width: 800px; margin: 0 auto; width: 100%">
-        <div class="d-flex justify-content-between">
+<div class="p-5" style="margin: 0 auto; max-width: 800px; width: 100%">
+    <div class="">
+        <div class="d-flex justify-content-between mb-2">
             <div>
-                <h1><i class="bi bi-people"></i> Gestión de Usuarios</h1>
-                <p>Administra los usuarios del sistema</p>
+                <h3><i class="bi bi-people"></i> Gestión de Usuarios</h3>
+                <p class="fw-light">Administra los usuarios del sistema</p>
             </div>
             <div>
                 <?= $this->Html->link(
-                    'Nuevo Usuario',
+                    '<i class="bi bi-person-add"></i> Nuevo Usuario',
                     ['action' => 'addUser'],
-                    ['class' => 'btn btn-success rounded-0']
+                    ['class' => 'btn btn-success', 'escapeTitle' => false]
                 ) ?>
             </div>
         </div>
@@ -24,7 +24,7 @@ $this->assign('title', 'Usuarios');
 
     <?= $this->Flash->render() ?>
 
-    <div class="" style="max-width: 1000px; margin: 0 auto; width: 100%">
+    <div class="overflow-auto scroll">
         <table class="table table-hover">
             <thead>
                 <tr>
@@ -43,9 +43,7 @@ $this->assign('title', 'Usuarios');
                         <tr>
                             <td class="align-middle">
                                 <div class="d-flex gap-2 align-items-center">
-                                    <div class="bg-secondary text-white fw-bold rounded-circle d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
-                                        <?= strtoupper(substr($user->name, 0, 1)) ?>
-                                    </div>
+                                    <?= $this->User->profileImageTag($user, ['width' => '45', 'height' => '45', 'class' => 'rounded-circle object-fit-cover shadow']) ?>
                                     <strong class="lh-1"><?= h($user->name) ?></strong>
                                 </div>
                             </td>
@@ -56,7 +54,9 @@ $this->assign('title', 'Usuarios');
                                     $roles = [
                                         'admin' => 'Administrador',
                                         'agent' => 'Agente',
-                                        'compras' => 'Compras'
+                                        'servicio_cliente' => 'Servicio al Cliente',
+                                        'compras' => 'Compras',
+                                        'requester' => 'Solicitante'
                                     ];
                                     echo $roles[$user->role] ?? $user->role;
                                     ?>
@@ -72,20 +72,21 @@ $this->assign('title', 'Usuarios');
                             </td>
                             <td class="align-middle"><?= $user->created->format('d/m/Y') ?></td>
                             <td class="align-middle">
-                                <div class="action-buttons">
+                                <div class="action-buttons d-flex gap-2">
                                     <?= $this->Html->link(
-                                        '✏️',
+                                        '<i class="bi bi-pencil"></i>',
                                         ['action' => 'editUser', $user->id],
-                                        ['class' => 'btn p-1 btn-outline-secondary', 'title' => 'Editar']
+                                        ['class' => 'btn btn-outline-warning p-2', 'title' => 'Editar', 'escape' => false]
                                     ) ?>
                                     <?php if ($user->is_active): ?>
                                         <?= $this->Form->postLink(
-                                            '🚫',
+                                            '<i class="bi bi-person-x"></i>',
                                             ['action' => 'deactivateUser', $user->id],
                                             [
-                                                'class' => 'btn btn-outline-danger p-1',
+                                                'class' => 'btn btn-outline-danger p-2',
                                                 'title' => 'Desactivar',
-                                                'confirm' => '¿Desactivar a ' . $user->name . '?'
+                                                'confirm' => '¿Desactivar a ' . $user->name . '?',
+                                                'escape' => false
                                             ]
                                         ) ?>
                                     <?php else: ?>

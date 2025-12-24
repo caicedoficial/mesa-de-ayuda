@@ -48,20 +48,39 @@ class GmailService
         $this->client = new GoogleClient();
 
         // Load client secret from file
-        $clientSecretPath = $this->config['client_secret_path'] ?? CONFIG . 'google' . DS . 'client_secret_637287765095-o43mlmj2kbi0cfhjj87vm5rcqe68kd1d.apps.googleusercontent.com.json';
+        $clientSecretPath = $this->config['client_secret_path'] ?? CONFIG . 'google' . DS . 'client_secret.json';
 
         if (file_exists($clientSecretPath)) {
             $this->client->setAuthConfig($clientSecretPath);
+        } else {
+            Log::error('Client secret file not found: ' . $clientSecretPath);
         }
 
         $this->client->addScope(Gmail::GMAIL_READONLY);
         $this->client->addScope(Gmail::GMAIL_SEND);
         $this->client->addScope(Gmail::GMAIL_MODIFY);
         $this->client->setAccessType('offline');
+        $this->client->setPrompt('consent'); // Force to always get refresh_token
 
-        // Set refresh token if available
+        // Set redirect URI for OAuth2 flow
+        if (!empty($this->config['redirect_uri'])) {
+            $this->client->setRedirectUri($this->config['redirect_uri']);
+        }
+
+        // Set refresh token and fetch access token if available
         if (!empty($this->config['refresh_token'])) {
-            $this->client->refreshToken($this->config['refresh_token']);
+            try {
+                // Exchange refresh token for access token
+                $token = $this->client->fetchAccessTokenWithRefreshToken($this->config['refresh_token']);
+
+                if (isset($token['error'])) {
+                    Log::error('OAuth token refresh failed', ['error' => $token]);
+                    throw new \RuntimeException('Gmail authentication failed: ' . ($token['error_description'] ?? $token['error']));
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to refresh OAuth token: ' . $e->getMessage());
+                throw new \RuntimeException('Gmail authentication failed. Please re-authenticate in Admin Settings.');
+            }
         }
     }
 
@@ -156,6 +175,10 @@ class GmailService
             $headers = $message->getPayload()->getHeaders();
             $parts = $message->getPayload()->getParts();
 
+            // Parse To and CC recipients
+            $toHeader = $this->getHeader($headers, 'To');
+            $ccHeader = $this->getHeader($headers, 'Cc');
+
             $data = [
                 'gmail_message_id' => $messageId,
                 'gmail_thread_id' => $message->getThreadId(),
@@ -163,6 +186,8 @@ class GmailService
                 'to' => $this->getHeader($headers, 'To'),
                 'subject' => $this->getHeader($headers, 'Subject'),
                 'date' => $this->getHeader($headers, 'Date'),
+                'email_to' => $this->parseRecipients($toHeader),
+                'email_cc' => $this->parseRecipients($ccHeader),
                 'body_html' => '',
                 'body_text' => '',
                 'attachments' => [],
@@ -193,27 +218,18 @@ class GmailService
         $body = $payload->getBody();
 
         // Handle body content - preserve ALL HTML including styles
-        if ($mimeType === 'text/html' && $body->getSize() > 0) {
+        if ($mimeType === 'text/html' && $body->getSize() > 0 && $body->getData() !== null) {
             $htmlContent = base64_decode(strtr($body->getData(), '-_', '+/'));
-
-            // Concatenate multiple HTML parts (some emails have multiple)
-            if (!empty($data['body_html'])) {
-                $data['body_html'] .= "\n" . $htmlContent;
-            } else {
-                $data['body_html'] = $htmlContent;
-            }
-        } elseif ($mimeType === 'text/plain' && $body->getSize() > 0) {
+            $data['body_html'] = empty($data['body_html']) ? $htmlContent : $data['body_html'] . "\n" . $htmlContent;
+        } elseif ($mimeType === 'text/plain' && $body->getSize() > 0 && $body->getData() !== null) {
             $textContent = base64_decode(strtr($body->getData(), '-_', '+/'));
-
-            if (!empty($data['body_text'])) {
-                $data['body_text'] .= "\n" . $textContent;
-            } else {
-                $data['body_text'] = $textContent;
-            }
+            $data['body_text'] = empty($data['body_text']) ? $textContent : $data['body_text'] . "\n" . $textContent;
         }
 
-        // Handle attachments and inline images
+
+        // Handle attachments
         $filename = $payload->getFilename();
+
         if (!empty($filename)) {
             $headers = $payload->getHeaders();
             $contentId = $this->getHeader($headers, 'Content-ID');
@@ -227,17 +243,23 @@ class GmailService
                 'size' => $body->getSize(),
             ];
 
-            // Check if it's an inline image (by Content-ID or Content-Disposition)
-            $isInline = !empty($contentId) || stripos($contentDisposition, 'inline') !== false;
+            // Check Content-Disposition first (official way to distinguish inline vs attachment)
+            $isExplicitAttachment = stripos($contentDisposition, 'attachment') !== false;
+            $isExplicitInline = stripos($contentDisposition, 'inline') !== false;
 
-            if ($isInline && !empty($contentId)) {
+            if ($isExplicitAttachment) {
+                // Explicitly marked as attachment - treat as regular attachment
+                $data['attachments'][] = $attachment;
+            } elseif ($isExplicitInline && !empty($contentId) && stripos($mimeType, 'image/') === 0) {
+                // Explicitly inline AND has Content-ID AND is an image - treat as inline image
                 $attachment['content_id'] = trim($contentId, '<>');
                 $data['inline_images'][] = $attachment;
-            } elseif ($isInline && stripos($mimeType, 'image/') === 0) {
-                // Some inline images don't have Content-ID, generate one
-                $attachment['content_id'] = md5($filename . $attachmentId);
+            } elseif (!empty($contentId) && stripos($mimeType, 'image/') === 0) {
+                // Has Content-ID AND is an image (no explicit disposition) - treat as inline image
+                $attachment['content_id'] = trim($contentId, '<>');
                 $data['inline_images'][] = $attachment;
             } else {
+                // Default: treat as regular attachment
                 $data['attachments'][] = $attachment;
             }
         }
@@ -301,14 +323,24 @@ class GmailService
      * @param array $attachments Array of attachment file paths
      * @return bool Success status
      */
-    public function sendEmail(string $to, string $subject, string $htmlBody, array $attachments = []): bool
+    /**
+     * Send email via Gmail API
+     *
+     * @param string|array $to Recipient email or array of recipients ['email' => 'name', ...]
+     * @param string $subject Subject
+     * @param string $htmlBody HTML body
+     * @param array $attachments Array of file paths
+     * @param array $options Additional options: 'from', 'cc', 'bcc', 'replyTo'
+     * @return bool Success status
+     */
+    public function sendEmail($to, string $subject, string $htmlBody, array $attachments = [], array $options = []): bool
     {
         try {
             $service = $this->getService();
 
             // Create MIME message
             $boundary = uniqid('boundary_');
-            $rawMessage = $this->createMimeMessage($to, $subject, $htmlBody, $attachments, $boundary);
+            $rawMessage = $this->createMimeMessage($to, $subject, $htmlBody, $attachments, $boundary, $options);
 
             // Base64 encode for Gmail API
             $encodedMessage = base64_encode($rawMessage);
@@ -322,7 +354,11 @@ class GmailService
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Error sending Gmail message: ' . $e->getMessage());
+            Log::error('Error sending Gmail message: ' . $e->getMessage(), [
+                'to' => is_array($to) ? implode(', ', array_keys($to)) : $to,
+                'subject' => $subject,
+                'error' => $e->getMessage()
+            ]);
             return false;
         }
     }
@@ -330,16 +366,86 @@ class GmailService
     /**
      * Create MIME message for sending
      *
-     * @param string $to Recipient
+     * @param string|array $to Recipient(s)
      * @param string $subject Subject
      * @param string $htmlBody HTML body
-     * @param array $attachments Attachments
+     * @param array $attachments Attachments (file paths)
      * @param string $boundary MIME boundary
+     * @param array $options Additional options (from, cc, bcc, replyTo)
      * @return string MIME message
      */
-    private function createMimeMessage(string $to, string $subject, string $htmlBody, array $attachments, string $boundary): string
+    private function createMimeMessage($to, string $subject, string $htmlBody, array $attachments, string $boundary, array $options = []): string
     {
-        $message = "To: {$to}\r\n";
+        // Build From header
+        if (!empty($options['from'])) {
+            if (is_array($options['from'])) {
+                // ['email' => 'name']
+                $fromEmail = array_keys($options['from'])[0];
+                $fromName = $options['from'][$fromEmail];
+                $message = "From: {$fromName} <{$fromEmail}>\r\n";
+            } else {
+                $message = "From: {$options['from']}\r\n";
+            }
+        } else {
+            $message = "";
+        }
+
+        // Build To header
+        if (is_array($to)) {
+            $toList = [];
+            foreach ($to as $email => $name) {
+                if (is_numeric($email)) {
+                    // Simple array of emails
+                    $toList[] = $name;
+                } else {
+                    // Associative array ['email' => 'name']
+                    $toList[] = "{$name} <{$email}>";
+                }
+            }
+            $message .= "To: " . implode(', ', $toList) . "\r\n";
+        } else {
+            $message .= "To: {$to}\r\n";
+        }
+
+        // Build CC header
+        if (!empty($options['cc'])) {
+            if (is_array($options['cc'])) {
+                $ccList = [];
+                foreach ($options['cc'] as $email => $name) {
+                    if (is_numeric($email)) {
+                        $ccList[] = $name;
+                    } else {
+                        $ccList[] = "{$name} <{$email}>";
+                    }
+                }
+                $message .= "Cc: " . implode(', ', $ccList) . "\r\n";
+            } else {
+                $message .= "Cc: {$options['cc']}\r\n";
+            }
+        }
+
+        // Build BCC header
+        if (!empty($options['bcc'])) {
+            if (is_array($options['bcc'])) {
+                $bccList = [];
+                foreach ($options['bcc'] as $email => $name) {
+                    if (is_numeric($email)) {
+                        $bccList[] = $name;
+                    } else {
+                        $bccList[] = "{$name} <{$email}>";
+                    }
+                }
+                $message .= "Bcc: " . implode(', ', $bccList) . "\r\n";
+            } else {
+                $message .= "Bcc: {$options['bcc']}\r\n";
+            }
+        }
+
+        // Reply-To header
+        if (!empty($options['replyTo'])) {
+            $message .= "Reply-To: {$options['replyTo']}\r\n";
+        }
+
         $message .= "Subject: {$subject}\r\n";
         $message .= "MIME-Version: 1.0\r\n";
         $message .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n\r\n";
@@ -416,5 +522,40 @@ class GmailService
         }
 
         return $this->extractEmailAddress($emailString);
+    }
+
+    /**
+     * Parse recipients header into structured array
+     *
+     * Parses email headers like "To" or "Cc" that may contain multiple recipients
+     * in format: "Name1 <email1@example.com>, Name2 <email2@example.com>"
+     *
+     * @param string $recipientsHeader Raw header string with recipients
+     * @return array Array of recipients with 'name' and 'email' keys, or empty array
+     */
+    private function parseRecipients(string $recipientsHeader): array
+    {
+        if (empty($recipientsHeader)) {
+            return [];
+        }
+
+        $recipients = [];
+
+        // Split by comma (handling cases where commas might appear in quoted names)
+        $parts = preg_split('/,(?=(?:[^"]*"[^"]*")*[^"]*$)/', $recipientsHeader);
+
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if (empty($part)) {
+                continue;
+            }
+
+            $recipients[] = [
+                'name' => $this->extractName($part),
+                'email' => $this->extractEmailAddress($part),
+            ];
+        }
+
+        return $recipients;
     }
 }

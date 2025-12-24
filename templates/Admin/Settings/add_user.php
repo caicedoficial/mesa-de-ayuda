@@ -5,9 +5,9 @@
  */
 $this->assign('title', 'Añadir Usuario');
 ?>
-<div class="py-3 px-3 overflow-auto scroll" style="max-width: 800px; margin: 0 auto; width: 100%;">
+<div class="p-5" style="max-width: 800px; margin: 0 auto; width: 100%;">
     <div class="page-header">
-        <h1>➕ Nuevo Usuario</h1>
+        <h1><i class="bi bi-person-add"></i> Nuevo Usuario</h1>
         <p>Crear un nuevo usuario en el sistema</p>
     </div>
 
@@ -20,19 +20,19 @@ $this->assign('title', 'Añadir Usuario');
 
             <div class="form-row">
                 <div class="form-group">
-                    <?= $this->Form->label('name', 'Nombre Completo *') ?>
-                    <?= $this->Form->text('name', [
+                    <?= $this->Form->label('first_name', 'Nombre *') ?>
+                    <?= $this->Form->text('first_name', [
                         'class' => 'form-control',
-                        'placeholder' => 'Ej: Juan Pérez',
+                        'placeholder' => 'Ej: Juan',
                         'required' => true
                     ]) ?>
                 </div>
 
                 <div class="form-group">
-                    <?= $this->Form->label('email', 'Correo Electrónico *') ?>
-                    <?= $this->Form->email('email', [
+                    <?= $this->Form->label('last_name', 'Apellido *') ?>
+                    <?= $this->Form->text('last_name', [
                         'class' => 'form-control',
-                        'placeholder' => 'ejemplo@correo.com',
+                        'placeholder' => 'Ej: Pérez',
                         'required' => true
                     ]) ?>
                 </div>
@@ -40,10 +40,11 @@ $this->assign('title', 'Añadir Usuario');
 
             <div class="form-row">
                 <div class="form-group">
-                    <?= $this->Form->label('phone', 'Teléfono') ?>
-                    <?= $this->Form->text('phone', [
+                    <?= $this->Form->label('email', 'Correo Electrónico *') ?>
+                    <?= $this->Form->email('email', [
                         'class' => 'form-control',
-                        'placeholder' => '+57 300 123 4567'
+                        'placeholder' => 'ejemplo@correo.com',
+                        'required' => true
                     ]) ?>
                 </div>
 
@@ -66,8 +67,9 @@ $this->assign('title', 'Añadir Usuario');
                     <?= $this->Form->select('role', [
                         'admin' => 'Administrador',
                         'agent' => 'Agente',
-                        'requester' => 'Solicitante',
-                        'compras' => 'Compras'
+                        'servicio_cliente' => 'Servicio al Cliente',
+                        'compras' => 'Compras',
+                        'requester' => 'Solicitante'
                     ], [
                         'class' => 'form-control',
                         'required' => true
@@ -114,11 +116,11 @@ $this->assign('title', 'Añadir Usuario');
         </div>
 
         <div class="form-actions">
-            <?= $this->Form->button('💾 Crear Usuario', [
-                'class' => 'btn btn-primary'
+            <?= $this->Form->button('<i class="bi bi-arrow-up-circle"></i> Crear Usuario', [
+                'class' => 'btn btn-success', 'escapeTitle' => false
             ]) ?>
             <?= $this->Html->link('Cancelar', ['action' => 'users'], [
-                'class' => 'btn btn-secondary'
+                'class' => 'btn btn-danger'
             ]) ?>
         </div>
     </div>

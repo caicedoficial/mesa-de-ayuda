@@ -20,6 +20,13 @@ class TicketsSidebarCell extends Cell
     public function display(string $currentView = 'todos_sin_resolver', ?string $userRole = null, ?int $userId = null): void
     {
         $ticketsTable = TableRegistry::getTableLocator()->get('Tickets');
+        $usersTable = TableRegistry::getTableLocator()->get('Users');
+
+        // Get current user object for profile image
+        $currentUser = null;
+        if ($userId) {
+            $currentUser = $usersTable->get($userId);
+        }
 
         // Build base query - filter by user role
         $baseQuery = $ticketsTable->find();
@@ -32,7 +39,32 @@ class TicketsSidebarCell extends Cell
             $baseQuery->where(['assignee_id' => $userId]);
         }
 
+        // If user is agent, exclude tickets assigned to compras users
+        if ($userRole === 'agent') {
+            $comprasUserIds = $usersTable
+                ->find()
+                ->select(['id'])
+                ->where(['role' => 'compras'])
+                ->all()
+                ->extract('id')
+                ->toArray();
+
+            if (!empty($comprasUserIds)) {
+                $baseQuery->where([
+                    'OR' => [
+                        'Tickets.assignee_id IS' => null,
+                        'Tickets.assignee_id NOT IN' => $comprasUserIds
+                    ]
+                ]);
+            }
+        }
+
         // Calculate counts for each view
+        // For agents: filter nuevos, abiertos, pendientes by assigned tickets only
+        // For admins: show all tickets
+        $isAgent = $userRole === 'agent';
+        $isAdmin = $userRole === 'admin';
+
         $counts = [
             'sin_asignar' => (clone $baseQuery)
                 ->where(['assignee_id IS' => null, 'status !=' => 'resuelto'])
@@ -41,13 +73,25 @@ class TicketsSidebarCell extends Cell
                 ->where(['status !=' => 'resuelto'])
                 ->count(),
             'pendientes' => (clone $baseQuery)
-                ->where(['status' => 'pendiente'])
+                ->where([
+                    'status' => 'pendiente',
+                    // Agents see only their assigned tickets, admins see all
+                    ($isAgent && $userId) ? ['assignee_id' => $userId] : []
+                ])
                 ->count(),
             'nuevos' => (clone $baseQuery)
-                ->where(['status' => 'nuevo'])
+                ->where([
+                    'status' => 'nuevo',
+                    // Agents see only their assigned tickets, admins see all
+                    ($isAgent && $userId) ? ['assignee_id' => $userId] : []
+                ])
                 ->count(),
             'abiertos' => (clone $baseQuery)
-                ->where(['status' => 'abierto'])
+                ->where([
+                    'status' => 'abierto',
+                    // Agents see only their assigned tickets, admins see all
+                    ($isAgent && $userId) ? ['assignee_id' => $userId] : []
+                ])
                 ->count(),
             'resueltos' => (clone $baseQuery)
                 ->where(['status' => 'resuelto'])
@@ -64,5 +108,6 @@ class TicketsSidebarCell extends Cell
         $this->set('counts', $counts);
         $this->set('view', $currentView);
         $this->set('userRole', $userRole);
+        $this->set('currentUser', $currentUser);
     }
 }

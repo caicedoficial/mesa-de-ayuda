@@ -12,6 +12,8 @@ use Cake\ORM\Entity;
  * @property string $ticket_number
  * @property string|null $gmail_message_id
  * @property string|null $gmail_thread_id
+ * @property string|null $email_to
+ * @property string|null $email_cc
  * @property string $subject
  * @property string|null $description
  * @property string $status
@@ -49,6 +51,8 @@ class Ticket extends Entity
         'ticket_number' => true,
         'gmail_message_id' => true,
         'gmail_thread_id' => true,
+        'email_to' => true,
+        'email_cc' => true,
         'subject' => true,
         'description' => true,
         'status' => true,
@@ -70,4 +74,80 @@ class Ticket extends Entity
         'ticket_followers' => true,
         'ticket_tags' => true,
     ];
+
+    /**
+     * Set email_to as JSON (encode array)
+     *
+     * @param array|string|null $value Array of recipients or JSON string
+     * @return string|null JSON string or null
+     */
+    protected function _setEmailTo($value): ?string
+    {
+        if (is_array($value)) {
+            // Return null for empty arrays
+            if (empty($value)) {
+                return null;
+            }
+            return json_encode($value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Set email_cc as JSON (encode array)
+     *
+     * @param array|string|null $value Array of recipients or JSON string
+     * @return string|null JSON string or null
+     */
+    protected function _setEmailCc($value): ?string
+    {
+        if (is_array($value)) {
+            // Return null for empty arrays
+            if (empty($value)) {
+                return null;
+            }
+            return json_encode($value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Get decoded email_to as array (virtual property)
+     *
+     * Access via $ticket->email_to_array (not $ticket->email_to)
+     *
+     * @return array Array of recipients with 'name' and 'email' keys
+     */
+    protected function _getEmailToArray(): array
+    {
+        $value = $this->_fields['email_to'] ?? null;
+
+        if (empty($value)) {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Get decoded email_cc as array (virtual property)
+     *
+     * Access via $ticket->email_cc_array (not $ticket->email_cc)
+     *
+     * @return array Array of recipients with 'name' and 'email' keys
+     */
+    protected function _getEmailCcArray(): array
+    {
+        $value = $this->_fields['email_cc'] ?? null;
+
+        if (empty($value)) {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
 }

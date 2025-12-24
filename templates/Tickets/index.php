@@ -2,25 +2,30 @@
 /**
  * @var \App\View\AppView $this
  * @var iterable<\App\Model\Entity\Ticket> $tickets
+ * @var \App\View\Helper\StatusHelper $Status
+ * @var \App\View\Helper\TicketHelper $Ticket
+ * @var \App\View\Helper\TimeHumanHelper $TimeHuman
  */
 $this->assign('title', 'Tickets');
-?>
 
-<?php
 // Get user info for sidebar
 $user = $this->getRequest()->getAttribute('identity');
 $userRole = $user ? $user->get('role') : null;
 $userId = $user ? $user->get('id') : null;
 ?>
 
-<div class="d-flex w-25">
+<!-- Load CSS and JS -->
+<?= $this->Html->css('bulk-actions') ?>
+<?= $this->Html->script('bulk-actions-module') ?>
+
+<div class="d-flex">
     <?= $this->cell('TicketsSidebar::display', [$view, $userRole, $userId]) ?>
 </div>
 
-<div class="py-4 px-5 w-75">
+<div class="py-4 px-5 w-100">
     <div class="d-flex gap-3 align-items-center mb-3">
-        <img src="<?= $this->Url->build('img/ticket.png') ?>" height="40">
-        <h2 class="fw-normal m-0">
+        <img src="<?= $this->Url->build('img/ticket.png') ?>" height="35">
+        <h2 class="fw-normal m-0 fs-3">
             <?php
             $titles = [
                 'sin_asignar' => 'Tickets sin asignar',
@@ -36,39 +41,20 @@ $userId = $user ? $user->get('id') : null;
         </h2>
     </div>
 
-    <!-- Search Bar -->
-    <div class="mb-3">
-        <?= $this->Form->create(null, ['type' => 'get', 'class' => 'd-flex gap-2 align-items-center']) ?>
-            <?= $this->Form->hidden('view', ['value' => $view]) ?>
+    <div class="d-flex align-items-center mb-3 gap-2">
+        <!-- Search Bar -->
+        <?= $this->element('shared/search_bar', [
+            'searchValue' => $filters['search'] ?? '',
+            'placeholder' => 'Buscar tickets...',
+            'entityType' => 'ticket',
+            'view' => $view
+        ]) ?>
 
-            <div class="input-group flex-grow-1">
-                <span class="input-group-text bg-white">
-                    <i class="bi bi-search small"></i>
-                </span>
-                <?= $this->Form->control('search', [
-                    'label' => false,
-                    'class' => 'form-control rounded-0 form-control-sm py-2',
-                    'placeholder' => 'Buscar por número, asunto, email...',
-                    'value' => $filters['search'] ?? '',
-                    'type' => 'text',
-                    'style' => 'box-shadow: none; width: 400px;'
-                ]) ?>
-            </div>
-
-            <?= $this->Form->button('Buscar', [
-                'class' => 'btn btn-sm btn-primary',
-                'escape' => false,
-                'title' => 'Buscar'
-            ]) ?>
-
-            <?php if (!empty($filters['search'])): ?>
-                <?= $this->Html->link('<i class="bi bi-x-lg"></i>', ['action' => 'index', '?' => ['view' => $view]], [
-                    'class' => 'btn btn-outline-danger',
-                    'escape' => false,
-                    'title' => 'Limpiar búsqueda'
-                ]) ?>
-            <?php endif; ?>
-        <?= $this->Form->end() ?>
+        <!-- Bulk Actions Bar -->
+        <?= $this->element('shared/bulk_actions_bar', [
+            'entityType' => 'ticket',
+            'showTagAction' => true
+        ]) ?>
     </div>
 
     <div class="mb-3 fs-6 d-flex align-items-center">
@@ -77,83 +63,63 @@ $userId = $user ? $user->get('id') : null;
     </div>
 
     <?php if ($tickets->count() > 0): ?>
-        <div class="table-responsive scroll" style="max-height: 300px; overflow-y: auto;">
+        <div class="table-responsive table-scroll scroll">
             <table class="table table-hover mb-0">
-                <thead class="bg-white" style="position: sticky; top: 0; z-index: 5;">
+                <thead class="" style="position: sticky; top: 0; z-index: 10;">
                     <tr>
                         <th class="w-fit pe-4 align-middle" style="width:36px">
                             <input type="checkbox" id="checkAll" class="form-check-input border border-dark rounded" />
                         </th>
-                        <th class="w-fit fw-semibold align-middle">Estado</th>
-                        <th class="w-fit fw-semibold align-middle">Asunto</th>
-                        <th class="w-fit fw-semibold align-middle">Solicitante</th>
-                        <th class="w-fit fw-semibold align-middle">Asignado a</th>
-                        <th class="w-fit fw-semibold align-middle">
+                        <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Estado</th>
+                        <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Asunto</th>
+                        <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Solicitante</th>
+                        <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Asignado a</th>
+                        <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">
                             <?= $this->Paginator->sort('created', 'Solicitado') ?>
                         </th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="">
                     <?php foreach ($tickets as $ticket): ?>
                         <tr>
-                            <td class="py-1 align-middle">
+                            <td class="py-0 align-middle ">
                                 <input type="checkbox" class="form-check-input row-check rounded border border-dark"
-                                    value="<?= (int)$ticket->id ?>" />
+                                    value="<?= (int) $ticket->id ?>" />
                             </td>
 
-                            <td class="py-1 align-middle small" style="width: 100px;">
+                            <td class="py-0 align-middle " style="width: 100px; font-size: 14px;">
                                 <?= $this->Status->badge($ticket->status) ?>
                             </td>
 
-                            <td class="py-1 fw-light align-middle small text-truncate"
+                            <td class="py-0 fw-light align-middle text-truncate"
                                 style="min-width: 300px; max-width: 300px;">
-                                <?php if ($ticket->assignee_id === 7): ?>
-                                    <?= $this->Html->link(
-                                        h($ticket->subject),
-                                        ['action' => 'view_compras', $ticket->id],
-                                        ['style' => 'text-decoration: none; color: var(--gray-900);']
-                                    ) ?>
-                                <?php else: ?>
-                                    <?= $this->Html->link(
-                                        h($ticket->subject),
-                                        ['action' => 'view', $ticket->id],
-                                        ['style' => 'text-decoration: none; color: var(--gray-900);']
-                                    ) ?>
-                                <?php endif; ?>
+                                <?= $this->Html->link(
+                                    h($ticket->subject),
+                                    $this->Ticket->getViewUrl($ticket),
+                                    ['style' => 'text-decoration: none; color: var(--gray-900); font-size: 14px;']
+                                ) ?>
                             </td>
 
-                            <td class="py-1 text-truncate align-middle small"
-                                style="min-width: 150px; max-width: 150px;">
-                                <strong><?= h($ticket->requester->name) ?></strong>
-                                <span class="text-muted" style="font-size: 12px;">
+                            <td class="py-0 text-truncate align-middle" style="min-width: 150px; max-width: 150px;">
+                                <strong class="" style="font-size: 14px;"><?= h($ticket->requester->name) ?></strong>
+                                <span class="text-muted" style="font-size: 14px;">
                                     (<?= h($ticket->requester->email) ?>)
                                 </span>
                             </td>
 
-                            <td class="py-1 align-middle small" style="max-width: 150px;">
-                                <?php if ($ticket->assignee_id === 7): ?>
-                                    <?= $this->Form->create(null, ['url' => ['action' => 'assign', $ticket->id]]) ?>
-                                    <?= $this->Form->select('agent_id', $agents, [
-                                        'value' => $ticket->assignee_id,
-                                        'empty' => 'Sin asignar',
-                                        'class' => 'select2',
-                                        'onchange' => 'this.form.submit()',
-                                        'disabled' => true
-                                    ]) ?>
-                                    <?= $this->Form->end() ?>
-                                <?php else: ?>
-                                    <?= $this->Form->create(null, ['url' => ['action' => 'assign', $ticket->id]]) ?>
-                                    <?= $this->Form->select('agent_id', $agents, [
-                                        'value' => $ticket->assignee_id,
-                                        'empty' => 'Sin asignar',
-                                        'class' => 'select2',
-                                        'onchange' => 'this.form.submit()',
-                                    ]) ?>
-                                    <?= $this->Form->end() ?>
-                                <?php endif; ?>
+                            <td class="py-1 align-middle" style="max-width: 150px;">
+                                <?= $this->Form->create(null, ['url' => ['action' => 'assign', $ticket->id], 'class' => 'table-assign-form']) ?>
+                                <?= $this->Form->select('agent_id', $agents, [
+                                    'value' => $ticket->assignee_id,
+                                    'empty' => 'Sin asignar',
+                                    'class' => 'table-agent-select form-select form-select-sm',
+                                    'disabled' => $this->Ticket->isAssignmentDisabled($user),
+                                    'data-ticket-id' => $ticket->id
+                                ]) ?>
+                                <?= $this->Form->end() ?>
                             </td>
 
-                            <td class="py-1 align-middle small lh-1">
+                            <td class="py-1 align-middle lh-1 " style="font-size: 14px;">
                                 <?= $this->TimeHuman->short($ticket->created) ?>
                             </td>
                         </tr>
@@ -173,3 +139,22 @@ $userId = $user ? $user->get('id') : null;
     <?php endif; ?>
 
 </div>
+
+<!-- Modales para acciones rápidas -->
+<?= $this->element('shared/bulk_modals', [
+    'entityType' => 'ticket',
+    'agents' => $agents,
+    'tags' => $tags,
+    'showTagModal' => true
+]) ?>
+
+<script>
+    // Inicializar bulk actions module
+    initBulkActions('ticket');
+
+    // Spinner: Mostrar en carga inicial (primera vez en la sesión)
+    <?php if ($this->request->getSession()->check('show_loading_spinner')): ?>
+        LoadingSpinner.showFor(800, 'Cargando tickets...');
+        <?php $this->request->getSession()->delete('show_loading_spinner'); ?>
+    <?php endif; ?>
+</script>

@@ -5,10 +5,10 @@
  */
 $this->assign('title', 'Plantillas de Email');
 ?>
-<div class="py-3 px-3 overflow-auto scroll" style="max-width: 800px; margin: 0 auto; width: 100%;">
+<div class="p-5" style="max-width: 800px; margin: 0 auto; width: 100%;">
     <div class="">
-        <h1>Plantillas de Email</h1>
-        <p>Gestiona las plantillas de notificaciones que se envían automáticamente</p>
+        <h3><i class="bi bi-envelope"></i> Plantillas de Email</h3>
+        <p class="fw-light">Gestiona las plantillas de notificaciones que se envían automáticamente</p>
     </div>
 
     <?= $this->Flash->render() ?>
@@ -18,7 +18,7 @@ $this->assign('title', 'Plantillas de Email');
             <?php foreach ($templates as $template): ?>
                 <div class="template-card rounded-0">
                     <div class="template-header">
-                        <h3>Nombre: <?= h($template->template_key) ?></h3>
+                        <h3><?= h($template->template_key) ?></h3>
                     </div>
 
                     <div class="template-info">
@@ -40,14 +40,15 @@ $this->assign('title', 'Plantillas de Email');
 
                     <div class="template-actions justify-content-end">
                         <?= $this->Html->link(
-                            'Editar',
+                            '<i class="bi bi-pencil"></i> Editar',
                             ['action' => 'editTemplate', $template->id],
-                            ['class' => 'btn btn-primary rounded-0']
+                            ['class' => 'btn btn-sm btn-primary', 'escapeTitle' => false]
                         ) ?>
                         <?= $this->Html->link(
-                            'Previsualizar',
+                            '<i class="bi bi-eye"></i> Previsualizar',
                             ['action' => 'previewTemplate', $template->id],
-                            ['class' => 'btn btn-outline-secondary border border-secondary rounded-0', 'target' => '_blank']
+                            ['class' => 'btn btn-sm btn-secondary', 'target' => '_blank',
+                                'escapeTitle' => false]
                         ) ?>
                     </div>
                 </div>
@@ -93,7 +94,7 @@ $this->assign('title', 'Plantillas de Email');
 .template-card {
     background: white;
     border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    border-radius: 8px !important;
     padding: 20px;
     transition: box-shadow 0.3s;
 }

@@ -10,7 +10,7 @@ use Cake\ORM\Entity;
  *
  * @property int $id
  * @property int $ticket_id
- * @property int|null $user_id
+ * @property int|null $changed_by
  * @property string $field_name
  * @property string|null $old_value
  * @property string|null $new_value
@@ -33,7 +33,7 @@ class TicketHistory extends Entity
      */
     protected array $_accessible = [
         'ticket_id' => true,
-        'user_id' => true,
+        'changed_by' => true,
         'field_name' => true,
         'old_value' => true,
         'new_value' => true,

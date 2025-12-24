@@ -42,7 +42,7 @@ class TicketTagsTable extends Table
     {
         parent::initialize($config);
 
-        $this->setTable('ticket_tags');
+        $this->setTable('tickets_tags');
         $this->setDisplayField('id');
         $this->setPrimaryKey('id');
 

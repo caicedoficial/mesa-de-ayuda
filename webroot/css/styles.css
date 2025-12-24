@@ -8,13 +8,20 @@
     font-style: normal;
 }
 
+:root {
+    --bg-color: #F7F8FA;
+}
+
+body {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    background-color: var(--bg-color) !important;
+}
+
 @view-transition {
     navigation: auto;
 }
-/* ============================================
-   VARIABLES Y COLORES
-   ============================================ */
-
 /* ============================================
    NAVIGATION BAR
    ============================================ */
@@ -26,19 +33,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: #fff;
 }
 
 .nav-menu a {
     color: #00A85E;
     text-decoration: none;
     padding: 6px 12px;  
-    border-radius: 6px;
     transition: all 0.3s ease;
     font-weight: 700;
     font-size: 14px;
     outline: 1px solid #00A85E;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 2px 2px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
 }
 
 .nav-menu a:hover {
@@ -51,70 +58,71 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-left: 20px;
+    margin-left: 10px;
     padding-left: 10px;
-    border-left: 1px solid #00A85E;
     color: #333;
 }
 
 .btn-logout {
     border: none;
     padding: 6px 14px !important;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 14px;
-    outline: 1px solid #CD6A15 !important;
-    color: #CD6A15 !important;
-}
-
-.btn-logout:hover {
     background-color: #CD6A15 !important;
     color: #fff !important;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    outline: 1px solid #CD6A15;
+}
+
+
+
+.btn-logout:hover {
+    transform: translateY(-1px);
+}
+
+.list-group {
+    gap: 8px;
 }
 
 .list-group-item {
-    border: none;
-    border-radius: 8px;
-    background-color: transparent !important;
-}
-
-.list-group-item:hover {
-    background-color: rgba(3, 140, 81, 0.5) !important;
+    background-color: transparent;
+    font-size: 14px;
+    border: 0;
+    padding: 0;
 }
 
 .list-group-item a {
-    display: flex; 
+    color: #fff;
+    text-decoration: none;
+    display: flex;
     justify-content: space-between;
     align-items: center;
-    text-decoration: none;
-    color: #000;
-    padding: 4px 16px;
-    font-size: 1rem;
+    padding: 8px 12px;
+    border-radius: 8px !important;
     font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.list-group-item a:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    text-decoration: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.list-group-item .active {
+    background-color: rgba(255, 255, 255, 0.1);
+    font-weight: bolder;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .count {
+    background-color: rgba(255, 255, 255, 0.2);
     font-size: 16px;
-    font-weight: bold;
-    color: #000;
-}
-
-.fondo {
-    position: relative;
-    overflow: hidden;
-}
-
-.fondo::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: url('../img/logosímbolo.png');
-    background-repeat: no-repeat;
-    background-position: bottom right;
-    background-size: 60%;
-    opacity: 0.4;
+    font-weight: bolder;
+    padding: 0 4px;
+    border-radius: 8px;
 }
 
 
@@ -133,6 +141,7 @@
     text-decoration: none;
     color: #333;
     transition: all 0.2s ease;
+
 }
 
 .attachment-item:hover {
@@ -149,16 +158,22 @@
    SELECT2 CUSTOM STYLES
    ============================================ */
 
-.select2-container--bootstrap-5.select2-container--focus .select2-selection, .select2-container--bootstrap-5.select2-container--open .select2-selection {
+.select2-selection {
     box-shadow: none !important;
-    outline: none !important;
+    font-size: 14px !important;
+    border-radius: 8px !important;
 }
 
-.selection > *, .select2-results__option {
-    font-size: 0.9rem !important;
+.select2-results__option {
+    font-size: 14px !important;
+    border-radius: 0 !important;
 }
 
-.select2-search, .select2-selection__clear {
+.select2-dropdown, .select2-dropdown--below {
+    border-radius: 8px !important;
+}
+
+.select2-search {
     display: none !important;
 }
 
@@ -172,6 +187,7 @@
     margin: 10px;
     box-shadow: 0px 4px 4px rgba(0,0,0,0.1);
     animation: slideInRight 0.3s ease-out;
+    border-radius: 8px;
 }
 
 .flash-message.hiding {
@@ -258,7 +274,7 @@
 
 /* Custom scrollbars */
 .scroll::-webkit-scrollbar {
-    width: 2px;
+    width: 4px;
 }
 
 .scroll::-webkit-scrollbar-track {
@@ -266,10 +282,140 @@
 }
 
 .scroll::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
+    background: rgba(205, 107, 21, 0.5);
+    border-radius: 8px;
 }
 
 .scroll::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: rgba(205, 107, 21, 1);
+}
+
+/* ============================================
+   MARQUEE TEXT ANIMATION
+   ============================================ */
+.marquee-container {
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.marquee-text {
+    display: inline-block;
+    white-space: nowrap;
+    animation: marquee 15s linear infinite;
+    animation-play-state: paused;
+}
+
+.marquee-container:hover .marquee-text {
+    animation-play-state: running;
+}
+
+@keyframes marquee {
+    0% {
+        transform: translateX(0%);
+    }
+    100% {
+        transform: translateX(calc(-100% - 20px));
+    }
+}
+
+/* Variante que reinicia la animación */
+.marquee-text.marquee-active {
+    animation-play-state: running;
+}
+
+/* ============================================
+   EMAIL RECIPIENTS TAGS (TagInput Component)
+   ============================================ */
+#email-recipients-section {
+    background-color: #f8f9fa;
+}
+
+/* TagInput Container - Looks like an input */
+.tag-input-container {
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    background-color: #ffffff;
+    min-height: 36px;
+}
+
+.tag-input-container:hover {
+    border-color: #b8bec4 !important;
+}
+
+.tag-input-container:focus-within {
+    border-color: #86b7fe !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15) !important;
+}
+
+/* Email Tags (Chips) - Gray style */
+.email-tag {
+    font-weight: 400;
+    gap: 6px;
+    white-space: nowrap;
+    background-color: #e9ecef !important;
+    color: #495057 !important;
+    border: 1px solid #dee2e6 !important;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.email-tag:hover {
+    background-color: #dee2e6 !important;
+    border-color: #ced4da !important;
+}
+
+/* Remove button inside tags */
+.email-tag .btn-close {
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    opacity: 0.6;
+}
+
+.email-tag .btn-close:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
+/* TagInput Field - Transparent, no borders */
+.tag-input-field {
+    background-color: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 4px 8px;
+    font-size: 13px;
+    min-width: 180px;
+    flex: 1 1 auto;
+}
+
+.tag-input-field::placeholder {
+    color: #6c757d;
+    opacity: 0.7;
+}
+
+.tag-input-field:focus::placeholder {
+    opacity: 0.5;
+}
+
+/* Dropdown items styling */
+.dropdown-item {
+    font-size: 14px;
+    padding: 8px 12px;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-item i {
+    width: 20px;
+    font-size: 16px;
+}
+
+.hover-bg-light {
+    transition: all 0.2s ease;
+    border: 1px solid #0000FF;
+}
+
+.hover-bg-light:hover {
+    border: 1px solid #0000FF;
+    background-color: #E0E0FF;
 }

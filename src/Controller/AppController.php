@@ -16,6 +16,7 @@ declare(strict_types=1);
  */
 namespace App\Controller;
 
+use App\Utility\SettingsEncryptionTrait;
 use Cake\Controller\Controller;
 
 /**
@@ -28,6 +29,7 @@ use Cake\Controller\Controller;
  */
 class AppController extends Controller
 {
+    use SettingsEncryptionTrait;
     /**
      * Initialization hook method.
      *
@@ -65,16 +67,21 @@ class AppController extends Controller
         $user = $this->Authentication->getIdentity();
         $this->set('currentUser', $user);
 
-        // Load system settings and make them available in all views
-        $systemSettingsTable = $this->fetchTable('SystemSettings');
-        $settings = $systemSettingsTable->find()
-            ->select(['setting_key', 'setting_value'])
-            ->toArray();
+        // Load system settings with cache (1 hour TTL)
+        $systemConfig = \Cake\Cache\Cache::remember('system_settings', function () {
+            $systemSettingsTable = $this->fetchTable('SystemSettings');
+            $settings = $systemSettingsTable->find()
+                ->select(['setting_key', 'setting_value'])
+                ->toArray();
 
-        $systemConfig = [];
-        foreach ($settings as $setting) {
-            $systemConfig[$setting->setting_key] = $setting->setting_value;
-        }
+            $config = [];
+            foreach ($settings as $setting) {
+                $config[$setting->setting_key] = $setting->setting_value;
+            }
+
+            // Decrypt sensitive values automatically
+            return $this->processSettings($config);
+        }, '_cake_core_');
 
         // Make system settings available in views
         $this->set('systemConfig', $systemConfig);
@@ -89,6 +96,8 @@ class AppController extends Controller
                 $this->viewBuilder()->setLayout('agent');
             } elseif ($role === 'compras') {
                 $this->viewBuilder()->setLayout('compras');
+            } elseif ($role === 'servicio_cliente') {
+                $this->viewBuilder()->setLayout('servicio_cliente');
             } else {
                 $this->viewBuilder()->setLayout('requester');
             }

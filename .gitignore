@@ -51,3 +51,14 @@ nbproject/*
 # yarn
 yarn-debug.log
 yarn-error.log
+
+# Docker #
+#########
+.env
+docker-compose.override.yml
+.docker/
+*.log
+
+# Debug files #
+###############
+temp_error.txt

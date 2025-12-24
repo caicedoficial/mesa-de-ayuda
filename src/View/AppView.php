@@ -37,5 +37,9 @@ class AppView extends View
      */
     public function initialize(): void
     {
+        $this->addHelper('Ticket');
+        $this->addHelper('Pqrs');
+        $this->addHelper('Compras');
+        $this->addHelper('User');
     }
 }

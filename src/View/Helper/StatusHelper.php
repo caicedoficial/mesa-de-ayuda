@@ -30,7 +30,7 @@ class StatusHelper extends Helper
             default => 'bg-secondary',
         };
 
-        $span = sprintf('<span style="font-size: 12px;" class="text-white text-uppercase lh-1 px-2 py-1 %s">%s</span>', h($class), h($label));
+        $span = sprintf('<span style="border-radius: 8px;" class="small px-2 py-1 text-white fw-bold text-uppercase %s">%s</span>', h($class), h($label));
 
         $url = $options['url'] ?? null;
         if ($url) {

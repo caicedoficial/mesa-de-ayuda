@@ -5,9 +5,9 @@
  */
 $this->assign('title', 'Añadir Etiqueta');
 ?>
-<div class="py-3 px-3 overflow-auto scroll" style="max-width: 800px; margin: 0 auto; width: 100%;">
+<div class="p-5" style="max-width: 800px; margin: 0 auto; width: 100%;">
     <div class="page-header">
-        <h1>➕ Nueva Etiqueta</h1>
+        <h1><i class="bi bi-tag"></i> Nueva Etiqueta</h1>
         <p>Crear una nueva etiqueta para organizar tickets</p>
     </div>
 
@@ -64,8 +64,8 @@ $this->assign('title', 'Añadir Etiqueta');
         </div>
 
         <div class="form-actions">
-            <?= $this->Form->button('💾 Crear Etiqueta', [
-                'class' => 'btn btn-primary'
+            <?= $this->Form->button('<i class="bi bi-arrow-up-circle"></i> Crear Etiqueta', [
+                'class' => 'btn btn-primary', 'escapeTitle' => false
             ]) ?>
             <?= $this->Html->link('Cancelar', ['action' => 'tags'], [
                 'class' => 'btn btn-secondary'

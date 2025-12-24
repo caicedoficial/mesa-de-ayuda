@@ -62,7 +62,7 @@ class TicketHistoryTable extends Table
         ]);
 
         $this->belongsTo('Users', [
-            'foreignKey' => 'user_id',
+            'foreignKey' => 'changed_by',
             'joinType' => 'LEFT',
         ]);
     }
@@ -80,8 +80,8 @@ class TicketHistoryTable extends Table
             ->notEmptyString('ticket_id');
 
         $validator
-            ->integer('user_id')
-            ->allowEmptyString('user_id');
+            ->integer('changed_by')
+            ->allowEmptyString('changed_by');
 
         $validator
             ->scalar('field_name')
@@ -116,7 +116,7 @@ class TicketHistoryTable extends Table
     public function buildRules(RulesChecker $rules): RulesChecker
     {
         $rules->add($rules->existsIn(['ticket_id'], 'Tickets'), ['errorField' => 'ticket_id']);
-        $rules->add($rules->existsIn(['user_id'], 'Users'), ['errorField' => 'user_id']);
+        $rules->add($rules->existsIn(['changed_by'], 'Users'), ['errorField' => 'changed_by']);
 
         return $rules;
     }
@@ -136,10 +136,10 @@ class TicketHistoryTable extends Table
     {
         $history = $this->newEntity([
             'ticket_id' => $ticketId,
-            'user_id' => $userId,
+            'changed_by' => $userId,
             'field_name' => $fieldName,
-            'old_value' => (string)$oldValue,
-            'new_value' => (string)$newValue,
+            'old_value' => (string) $oldValue,
+            'new_value' => (string) $newValue,
             'description' => $description,
         ]);
 

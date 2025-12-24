@@ -1,0 +1,278 @@
+/**
+ * Bulk Actions Styles
+ * Estilos compartidos para acciones masivas en Tickets y PQRS
+ * Extraído de templates inline styles para mejor mantenibilidad
+ */
+
+/* ============================================
+   Table Styles
+   ============================================ */
+table, thead, tbody, th, td {
+    background-color: var(--bg-color) !important;
+}
+
+.table-scroll {
+    max-height: 350px;
+    overflow-y: auto;
+    position: relative;
+    z-index: 1;
+}
+
+/* ============================================
+   Search Bar Animation
+   ============================================ */
+.search-container {
+    position: relative;
+    z-index: 999;
+}
+
+.search-input-group {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-icon {
+    border-right: 0 !important;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-color) !important;
+}
+
+.search-icon:hover {
+    background-color: var(--bg-color) !important;
+}
+
+.search-icon i {
+    transition: transform 0.3s ease, color 0.3s ease;
+    color: #6c757d;
+}
+
+.search-input {
+    border-left: 0 !important;
+    width: 200px;
+    border-radius: 0 8px 8px 0 !important;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none !important;
+    background-color: var(--bg-color) !important;
+}
+
+.search-input:focus,
+.search-input-group:focus-within .search-input {
+    width: 400px;
+    outline: none;
+    border-color: #00A85E !important;
+    border-left: 1px solid #00A85E !important;
+}
+
+.search-input::placeholder {
+    color: #adb5bd;
+    transition: color 0.3s ease;
+}
+
+/* Botón de limpiar búsqueda */
+.clear-search-btn {
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 1.2rem;
+    padding: 0.25rem 0.5rem;
+    line-height: 1;
+}
+
+.clear-search-btn:hover {
+    transform: scale(1.2) rotate(90deg);
+}
+
+/* ============================================
+   Bulk Actions Bar Animation
+   ============================================ */
+@keyframes slideDownFadeIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+        max-height: 100px;
+    }
+}
+
+@keyframes slideUpFadeOut {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+        max-height: 100px;
+    }
+    to {
+        transform: translateY(-20px);
+        opacity: 0;
+        max-height: 0;
+    }
+}
+
+.bulk-actions-animated {
+    transition: all 0.3s ease-out;
+}
+
+.bulk-actions-animated:not(.d-none) {
+    animation: slideDownFadeIn 0.4s ease-out forwards;
+}
+
+/* ============================================
+   Dropdown Animation
+   ============================================ */
+.dropdown-menu-animated {
+    animation: dropdownSlideIn 0.2s ease-out;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: none;
+    padding: 0.5rem 0;
+    position: absolute;
+    z-index: 1050 !important;
+    background-color: #F7F8FA !important;
+}
+
+/* Asegurar que el dropdown esté por encima de todo */
+.btn-group {
+    position: relative;
+    z-index: 1001;
+}
+
+.btn-group .dropdown-menu {
+    z-index: 1050 !important;
+}
+
+@keyframes dropdownSlideIn {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.dropdown-menu-animated .dropdown-item {
+    padding: 0.6rem 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.dropdown-menu-animated .dropdown-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+    padding-left: 1.5rem;
+}
+
+.dropdown-menu-animated .dropdown-item i {
+    transition: transform 0.2s ease;
+}
+
+.dropdown-menu-animated .dropdown-item:hover i {
+    transform: scale(1.2);
+}
+
+/* ============================================
+   Modal Animations
+   ============================================ */
+@keyframes modalSlideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal.show .modal-dialog {
+    animation: modalSlideDown 0.3s ease-out;
+}
+
+.modal-dialog-centered-small {
+    max-width: 420px;
+}
+
+.modal-content {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+    padding: 1rem 1.5rem;
+    border-bottom: none;
+}
+
+.modal-header .modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items-center;
+}
+
+.modal-header .modal-title i {
+    margin-right: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+    border-radius: 0 0 12px 12px;
+}
+
+.modal-footer .btn {
+    padding: 0.5rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+/* Modal de eliminación */
+.modal-header.bg-danger-gradient {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* ============================================
+   Form Styles
+   ============================================ */
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.form-select,
+.form-control {
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.form-select:focus,
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+}
+
+/* ============================================
+   Alert Styles
+   ============================================ */
+.alert-danger {
+    border-color: #feb2b2;
+    color: #c53030;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}

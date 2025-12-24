@@ -7,6 +7,8 @@ use Cake\ORM\Query\SelectQuery;
 use Cake\ORM\RulesChecker;
 use Cake\ORM\Table;
 use Cake\Validation\Validator;
+use Cake\Cache\Cache;
+use Cake\Event\EventInterface;
 
 /**
  * Users Model
@@ -44,7 +46,7 @@ class UsersTable extends Table
         parent::initialize($config);
 
         $this->setTable('users');
-        $this->setDisplayField('name');
+        $this->setDisplayField('first_name');
         $this->setPrimaryKey('id');
 
         $this->addBehavior('Timestamp');
@@ -80,10 +82,16 @@ class UsersTable extends Table
             ->allowEmptyString('password');
 
         $validator
-            ->scalar('name')
-            ->maxLength('name', 255)
-            ->requirePresence('name', 'create')
-            ->notEmptyString('name');
+            ->scalar('first_name')
+            ->maxLength('first_name', 100)
+            ->requirePresence('first_name', 'create')
+            ->notEmptyString('first_name');
+
+        $validator
+            ->scalar('last_name')
+            ->maxLength('last_name', 100)
+            ->requirePresence('last_name', 'create')
+            ->notEmptyString('last_name');
 
         $validator
             ->scalar('phone')
@@ -92,8 +100,9 @@ class UsersTable extends Table
 
         $validator
             ->scalar('role')
-            ->maxLength('role', 20)
-            ->notEmptyString('role');
+            ->maxLength('role', 50)
+            ->notEmptyString('role')
+            ->inList('role', ['admin', 'agent', 'compras', 'servicio_cliente', 'requester'], 'Rol no válido');
 
         $validator
             ->integer('organization_id')
@@ -102,6 +111,11 @@ class UsersTable extends Table
         $validator
             ->boolean('is_active')
             ->notEmptyString('is_active');
+
+        $validator
+            ->scalar('profile_image')
+            ->maxLength('profile_image', 255)
+            ->allowEmptyString('profile_image');
 
         return $validator;
     }
@@ -119,5 +133,139 @@ class UsersTable extends Table
         $rules->add($rules->existsIn(['organization_id'], 'Organizations'), ['errorField' => 'organization_id']);
 
         return $rules;
+    }
+
+    /**
+     * After save callback - clear compras users cache if role is compras
+     *
+     * @param \Cake\Event\EventInterface $_event The event
+     * @param \App\Model\Entity\User $entity The user entity
+     * @param \ArrayObject $_options Options
+     * @return void
+     */
+    public function afterSave(EventInterface $_event, $entity, $_options)
+    {
+        // PERFORMANCE FIX: Clear cache when compras user is created/updated
+        if ($entity->role === 'compras' || $entity->isDirty('role')) {
+            Cache::delete('compras_user_ids');
+        }
+    }
+
+    /**
+     * After delete callback - clear compras users cache if role is compras
+     *
+     * @param \Cake\Event\EventInterface $_event The event
+     * @param \App\Model\Entity\User $entity The user entity
+     * @param \ArrayObject $_options Options
+     * @return void
+     */
+    public function afterDelete(EventInterface $_event, $entity, $_options)
+    {
+        // PERFORMANCE FIX: Clear cache when compras user is deleted
+        if ($entity->role === 'compras') {
+            Cache::delete('compras_user_ids');
+        }
+    }
+
+    /**
+     * Save profile image for a user
+     *
+     * @param int $userId User ID
+     * @param \Psr\Http\Message\UploadedFileInterface $uploadedFile Uploaded file
+     * @return array Result with success status and filename or error message
+     */
+    public function saveProfileImage(int $userId, $uploadedFile): array
+    {
+        if ($uploadedFile->getError() !== UPLOAD_ERR_OK) {
+            \Cake\Log\Log::error('Profile image upload error', ['error' => $uploadedFile->getError()]);
+            return ['success' => false, 'message' => 'Error al subir el archivo'];
+        }
+
+        // Sanitize filename
+        $filename = basename($uploadedFile->getClientFilename());
+        $mimeType = $uploadedFile->getClientMediaType();
+        $size = $uploadedFile->getSize();
+
+        // Only allow images
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $allowedImageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+        if (!in_array($extension, $allowedImageExtensions)) {
+            return ['success' => false, 'message' => 'Solo se permiten imágenes (JPG, PNG, GIF, WEBP)'];
+        }
+
+        // Check file size (max 2MB for profile images)
+        if ($size > 2097152) {
+            return ['success' => false, 'message' => 'La imagen no debe superar 2MB'];
+        }
+
+        // Create profile images directory if it doesn't exist
+        $uploadDir = WWW_ROOT . 'uploads' . DS . 'profile_images' . DS;
+        if (!is_dir($uploadDir)) {
+            if (!mkdir($uploadDir, 0755, true)) {
+                \Cake\Log\Log::error('Failed to create profile images directory', ['dir' => $uploadDir]);
+                return ['success' => false, 'message' => 'Error al crear directorio de imágenes'];
+            }
+        }
+
+        // Generate unique filename
+        $uniqueFilename = 'user_' . $userId . '_' . \Cake\Utility\Text::uuid() . '.' . $extension;
+        $fullPath = $uploadDir . $uniqueFilename;
+        $relativePath = 'uploads/profile_images/' . $uniqueFilename;
+
+        // Move uploaded file
+        try {
+            $uploadedFile->moveTo($fullPath);
+        } catch (\Exception $e) {
+            \Cake\Log\Log::error('Failed to save profile image', [
+                'error' => $e->getMessage(),
+                'path' => $fullPath,
+            ]);
+            return ['success' => false, 'message' => 'Error al guardar la imagen'];
+        }
+
+        // Delete old profile image if exists
+        $user = $this->get($userId);
+        if ($user->profile_image) {
+            $this->deleteProfileImage($user->profile_image);
+        }
+
+        return ['success' => true, 'filename' => $relativePath];
+    }
+
+    /**
+     * Delete a profile image file
+     *
+     * @param string $filename Relative path to the profile image
+     * @return bool Success status
+     */
+    public function deleteProfileImage(string $filename): bool
+    {
+        if (empty($filename)) {
+            return false;
+        }
+
+        $fullPath = WWW_ROOT . $filename;
+        if (file_exists($fullPath)) {
+            return @unlink($fullPath);
+        }
+
+        return false;
+    }
+
+    /**
+     * Get profile image URL with fallback to default avatar
+     *
+     * @param string|null $profileImage Profile image path
+     * @return string URL to profile image or default avatar
+     */
+    public function getProfileImageUrl(?string $profileImage): string
+    {
+        if ($profileImage && file_exists(WWW_ROOT . $profileImage)) {
+            return '/' . str_replace(DS, '/', $profileImage);
+        }
+
+        // Return default avatar
+        return '/img/default-avatar.png';
     }
 }

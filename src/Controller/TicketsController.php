@@ -3,8 +3,13 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Controller\Traits\TicketSystemControllerTrait;
 use App\Service\TicketService;
-use App\Service\AttachmentService;
+use App\Service\EmailService;
+use App\Service\WhatsappService;
+use App\Service\StatisticsService;
+use App\Service\ResponseService;
+use Cake\Cache\Cache;
 
 /**
  * Tickets Controller
@@ -13,8 +18,12 @@ use App\Service\AttachmentService;
  */
 class TicketsController extends AppController
 {
+    use TicketSystemControllerTrait;
     private TicketService $ticketService;
-    private AttachmentService $attachmentService;
+    private EmailService $emailService;
+    private WhatsappService $whatsappService;
+    private ResponseService $responseService;
+    private StatisticsService $statisticsService;
 
     /**
      * Initialize
@@ -24,10 +33,17 @@ class TicketsController extends AppController
     public function initialize(): void
     {
         parent::initialize();
-        $this->ticketService = new TicketService();
-        $this->attachmentService = new AttachmentService();
-    }
 
+        // Get cached system config from parent (set in AppController::beforeFilter)
+        $systemConfig = $this->viewBuilder()->getVar('systemConfig');
+
+        // Initialize services with cached config to avoid redundant DB queries
+        $this->ticketService = new TicketService($systemConfig);
+        $this->emailService = new EmailService($systemConfig);
+        $this->whatsappService = new WhatsappService($systemConfig);
+        $this->statisticsService = new StatisticsService();
+        $this->responseService = new ResponseService($systemConfig);
+    }
     /**
      * Index method - List tickets with filters
      *
@@ -35,191 +51,32 @@ class TicketsController extends AppController
      */
     public function index()
     {
-        // Handle Gmail OAuth callback redirect
-        $code = $this->request->getQuery('code');
-        if ($code) {
-            return $this->redirect([
-                'controller' => 'Settings',
-                'action' => 'gmailAuth',
-                'prefix' => 'Admin',
-                '?' => ['code' => $code]
-            ]);
-        }
+        $this->indexEntity('ticket', [
+            'filterParams' => [
+                'organization_id' => 'filter_organization',
+            ],
+            'specialRedirects' => function($request, $user, $userRole) {
+                // Handle Gmail OAuth callback redirect
+                $code = $request->getQuery('code');
+                if ($code) {
+                    $this->redirect([
+                        'controller' => 'Settings',
+                        'action' => 'gmailAuth',
+                        'prefix' => 'Admin',
+                        '?' => ['code' => $code]
+                    ]);
+                    return true; // Indicate redirect happened
+                }
 
-        $user = $this->Authentication->getIdentity();
-        $userRole = $user ? $user->get('role') : null;
+                // Redirect servicio_cliente users to PQRS
+                if ($userRole === 'servicio_cliente') {
+                    $this->redirect(['controller' => 'Pqrs', 'action' => 'index']);
+                    return true; // Indicate redirect happened
+                }
 
-        // Redirect servicio_cliente users to PQRS
-        if ($userRole === 'servicio_cliente') {
-            return $this->redirect(['controller' => 'Pqrs', 'action' => 'index']);
-        }
-        $view = $this->request->getQuery('view', 'todos_sin_resolver');
-
-        // Get search and filter parameters
-        $search = $this->request->getQuery('search');
-        $filterStatus = $this->request->getQuery('filter_status');
-        $filterPriority = $this->request->getQuery('filter_priority');
-        $filterAssignee = $this->request->getQuery('filter_assignee');
-        $filterOrganization = $this->request->getQuery('filter_organization');
-        $filterDateFrom = $this->request->getQuery('filter_date_from');
-        $filterDateTo = $this->request->getQuery('filter_date_to');
-        $sortField = $this->request->getQuery('sort', 'created');
-        $sortDirection = $this->request->getQuery('direction', 'desc');
-
-        // Build query based on view
-        $query = $this->Tickets->find()
-            ->contain(['Requesters', 'Assignees', 'Organizations']);
-
-        // Apply sorting
-        $validSortFields = ['created', 'modified', 'ticket_number', 'status', 'priority', 'subject'];
-        if (in_array($sortField, $validSortFields)) {
-            $query->orderBy(['Tickets.' . $sortField => strtoupper($sortDirection)]);
-        } else {
-            $query->orderBy(['Tickets.created' => 'DESC']);
-        }
-
-        // If user is a requester, only show their own tickets
-        if ($userRole === 'requester') {
-            $query->where(['Tickets.requester_id' => $user->get('id')]);
-        }
-
-        // If user is compras role, only show their assigned tickets or resolved tickets
-        if ($userRole === 'compras') {
-            $query->where([
-                'OR' => [
-                    'Tickets.assignee_id' => $user->get('id'),
-                    'AND' => [
-                        'Tickets.assignee_id' => $user->get('id'),
-                        'Tickets.status' => 'resuelto'
-                    ]
-                ]
-            ]);
-        }
-
-        // If user is agent, exclude tickets assigned to compras users
-        if ($userRole === 'agent') {
-            $comprasUserIds = $this->fetchTable('Users')
-                ->find()
-                ->select(['id'])
-                ->where(['role' => 'compras'])
-                ->all()
-                ->extract('id')
-                ->toArray();
-
-            if (!empty($comprasUserIds)) {
-                $query->where([
-                    'OR' => [
-                        'Tickets.assignee_id IS' => null,
-                        'Tickets.assignee_id NOT IN' => $comprasUserIds
-                    ]
-                ]);
-            }
-        }
-
-        // Apply search filter - if search is active, ignore view filters and search ALL tickets
-        if (!empty($search)) {
-            $query->where([
-                'OR' => [
-                    'Tickets.ticket_number LIKE' => '%' . $search . '%',
-                    'Tickets.subject LIKE' => '%' . $search . '%',
-                    'Tickets.description LIKE' => '%' . $search . '%',
-                    'Tickets.source_email LIKE' => '%' . $search . '%',
-                    'Requesters.name LIKE' => '%' . $search . '%',
-                    'Requesters.email LIKE' => '%' . $search . '%',
-                ]
-            ]);
-        } else {
-            // Apply view-based filters only when NOT searching
-            switch ($view) {
-                case 'sin_asignar':
-                    $query->where(['Tickets.assignee_id IS' => null, 'Tickets.status !=' => 'resuelto']);
-                    break;
-                case 'todos_sin_resolver':
-                    $query->where(['Tickets.status !=' => 'resuelto']);
-                    break;
-                case 'pendientes':
-                    $query->where(['Tickets.status' => 'pendiente']);
-                    break;
-                case 'nuevos':
-                    $query->where(['Tickets.status' => 'nuevo']);
-                    break;
-                case 'abiertos':
-                    $query->where(['Tickets.status' => 'abierto']);
-                    break;
-                case 'resueltos':
-                    $query->where(['Tickets.status' => 'resuelto']);
-                    break;
-                case 'mis_tickets':
-                    // Filter by current user's assigned tickets
-                    if ($user) {
-                        $query->where(['Tickets.assignee_id' => $user->get('id'), 'Tickets.status !=' => 'resuelto']);
-                    }
-                    break;
-            }
-        }
-
-        // Apply status filter
-        if (!empty($filterStatus)) {
-            $query->where(['Tickets.status' => $filterStatus]);
-        }
-
-        // Apply priority filter
-        if (!empty($filterPriority)) {
-            $query->where(['Tickets.priority' => $filterPriority]);
-        }
-
-        // Apply assignee filter
-        if (!empty($filterAssignee)) {
-            if ($filterAssignee === 'unassigned') {
-                $query->where(['Tickets.assignee_id IS' => null]);
-            } else {
-                $query->where(['Tickets.assignee_id' => $filterAssignee]);
-            }
-        }
-
-        // Apply organization filter
-        if (!empty($filterOrganization)) {
-            $query->where(['Tickets.organization_id' => $filterOrganization]);
-        }
-
-        // Apply date range filter
-        if (!empty($filterDateFrom)) {
-            $query->where(['Tickets.created >=' => $filterDateFrom . ' 00:00:00']);
-        }
-        if (!empty($filterDateTo)) {
-            $query->where(['Tickets.created <=' => $filterDateTo . ' 23:59:59']);
-        }
-
-        $tickets = $this->paginate($query, [
-            'limit' => 10,
+                return null; // No redirect
+            },
         ]);
-
-        // Get all agents for assignment dropdown and filters
-        $agents = $this->fetchTable('Users')->find('list')
-            ->where(['role IN' => ['admin', 'agent', 'compras'], 'is_active' => true])
-            ->toArray();
-
-        // Get all organizations for filter
-        $organizations = $this->fetchTable('Organizations')->find('list')
-            ->toArray();
-
-        // Get all tags for bulk actions
-        $tags = $this->fetchTable('Tags')->find()->toArray();
-
-        // Store filters in variables for the view
-        $filters = compact(
-            'search',
-            'filterStatus',
-            'filterPriority',
-            'filterAssignee',
-            'filterOrganization',
-            'filterDateFrom',
-            'filterDateTo',
-            'sortField',
-            'sortDirection'
-        );
-
-        $this->set(compact('tickets', 'view', 'agents', 'organizations', 'filters', 'tags'));
     }
 
     /**
@@ -231,58 +88,32 @@ class TicketsController extends AppController
      */
     public function view($id = null)
     {
-        $ticket = $this->Tickets->get($id, contain: [
-            'Requesters',
-            'Assignees',
-            'Organizations',
-            'TicketComments' => ['Users'],
-            'Attachments',
-            'Tags',
-            'TicketFollowers' => ['Users'],
-            'TicketHistory' => ['Users'],
+        return $this->viewEntity('ticket', (int)$id, [
+            'lazyLoadHistory' => true, // PERFORMANCE FIX: Load history via AJAX
+            'permissionCheck' => function($ticket) {
+                return $this->_checkTicketViewPermission($ticket);
+            },
+            'beforeSet' => function($ticket, $viewVars) {
+                // Get all tags for selection
+                $tags = $this->fetchTable('Tags')->find('list')->toArray();
+
+                // Get compras users for conversion
+                $comprasUsers = $this->fetchTable('Users')->find()
+                    ->where(['role' => 'compras', 'is_active' => true])
+                    ->orderBy(['first_name' => 'ASC', 'last_name' => 'ASC'])
+                    ->all()
+                    ->combine('id', function ($user) {
+                        return $user->first_name . ' ' . $user->last_name;
+                    })
+                    ->toArray();
+
+                return array_merge($viewVars, compact('tags', 'comprasUsers'));
+            },
         ]);
-
-        // Check if requester is trying to view ticket that's not theirs
-        $user = $this->Authentication->getIdentity();
-        if ($user && $user->get('role') === 'requester') {
-            if ($ticket->requester_id !== $user->get('id')) {
-                $this->Flash->error('No tienes permiso para ver este ticket.');
-                return $this->redirect(['action' => 'index']);
-            }
-        }
-
-        // Check if compras user is trying to view ticket that's not assigned to them
-        if ($user && $user->get('role') === 'compras') {
-            if ($ticket->assignee_id !== $user->get('id')) {
-                $this->Flash->error('No tienes permiso para ver este ticket.');
-                return $this->redirect(['action' => 'index']);
-            }
-        }
-
-        // Check if agent is trying to view a ticket assigned to a compras user
-        if ($user && $user->get('role') === 'agent') {
-            if ($ticket->assignee_id !== null) {
-                $assignee = $this->fetchTable('Users')->get($ticket->assignee_id);
-                if ($assignee->role === 'compras') {
-                    $this->Flash->error('No tienes permiso para ver este ticket.');
-                    return $this->redirect(['action' => 'index']);
-                }
-            }
-        }
-
-        // Get all agents for assignment dropdown
-        $agents = $this->fetchTable('Users')->find('list')
-            ->where(['role IN' => ['admin', 'agent', 'compras'], 'is_active' => true])
-            ->toArray();
-
-        // Get all tags for selection
-        $tags = $this->fetchTable('Tags')->find('list')->toArray();
-
-        $this->set(compact('ticket', 'agents', 'tags'));
     }
 
     /**
-     * View method - Show ticket detail
+     * View method - Show ticket detail (Compras simplified view)
      *
      * @param string|null $id Ticket id.
      * @return \Cake\Http\Response|null|void Renders view
@@ -290,42 +121,48 @@ class TicketsController extends AppController
      */
     public function viewCompras($id = null)
     {
-        $ticket = $this->Tickets->get($id, contain: [
-            'Requesters',
-            'Assignees',
-            'Organizations',
-            'TicketComments' => ['Users'],
-            'Attachments',
-            'Tags',
-            'TicketFollowers' => ['Users'],
-        ]);
+        return $this->view($id);
+    }
 
-        // Check if requester is trying to view ticket that's not theirs
+    /**
+     * Check if current user has permission to view ticket
+     *
+     * @param \App\Model\Entity\Ticket $ticket Ticket entity
+     * @return \Cake\Http\Response|null Redirect response if no permission, null if allowed
+     */
+    private function _checkTicketViewPermission($ticket)
+    {
         $user = $this->Authentication->getIdentity();
-        if ($user && $user->get('role') === 'requester') {
-            if ($ticket->requester_id !== $user->get('id')) {
+        if (!$user) {
+            return null;
+        }
+
+        $userRole = $user->get('role');
+        $userId = $user->get('id');
+
+        // Requester can only view their own tickets
+        if ($userRole === 'requester' && $ticket->requester_id !== $userId) {
+            $this->Flash->error('No tienes permiso para ver este ticket.');
+            return $this->redirect(['action' => 'index']);
+        }
+
+        // Compras can only view tickets assigned to them
+        if ($userRole === 'compras' && $ticket->assignee_id !== $userId) {
+            $this->Flash->error('No tienes permiso para ver este ticket.');
+            return $this->redirect(['action' => 'index']);
+        }
+
+        // Agent cannot view tickets assigned to compras users
+        if ($userRole === 'agent' && $ticket->assignee_id !== null) {
+            $assignee = $this->fetchTable('Users')->get($ticket->assignee_id);
+            assert($assignee instanceof \App\Model\Entity\User);
+            if ($assignee->role === 'compras') {
                 $this->Flash->error('No tienes permiso para ver este ticket.');
                 return $this->redirect(['action' => 'index']);
             }
         }
 
-        // Check if compras user is trying to view ticket that's not assigned to them
-        if ($user && $user->get('role') === 'compras') {
-            if ($ticket->assignee_id !== $user->get('id')) {
-                $this->Flash->error('No tienes permiso para ver este ticket.');
-                return $this->redirect(['action' => 'index']);
-            }
-        }
-
-        // Get all agents for assignment dropdown
-        $agents = $this->fetchTable('Users')->find('list')
-            ->where(['role IN' => ['admin', 'agent', 'compras'], 'is_active' => true])
-            ->toArray();
-
-        // Get all tags for selection
-        $tags = $this->fetchTable('Tags')->find('list')->toArray();
-
-        $this->set(compact('ticket', 'agents', 'tags'));
+        return null;
     }
 
     /**
@@ -336,69 +173,7 @@ class TicketsController extends AppController
      */
     public function addComment($id = null)
     {
-        $this->request->allowMethod(['post']);
-
-        $ticket = $this->Tickets->get($id);
-        $user = $this->Authentication->getIdentity();
-        $userId = $user->get('id');
-
-        $commentBody = $this->request->getData('comment_body');
-        $commentType = $this->request->getData('comment_type', 'public');
-        $newStatus = $this->request->getData('status', $ticket->status);
-
-        if (empty($commentBody)) {
-            $this->Flash->error('El comentario no puede estar vacío.');
-            return $this->redirect(['action' => 'view', $id]);
-        }
-
-        // Add comment (without sending notifications yet)
-        $comment = $this->ticketService->addComment(
-            (int)$id,
-            $userId,
-            $commentBody,
-            $commentType,
-            false,
-            false  // Don't send notifications yet
-        );
-
-        if (!$comment) {
-            $this->Flash->error('Error al agregar el comentario.');
-            return $this->redirect(['action' => 'view', $id]);
-        }
-
-        // Handle file uploads BEFORE sending notifications
-        $files = $this->request->getUploadedFiles();
-        $uploadedCount = 0;
-        if (!empty($files['attachments'])) {
-            foreach ($files['attachments'] as $file) {
-                if ($file->getError() === UPLOAD_ERR_OK) {
-                    $result = $this->attachmentService->saveUploadedFile(
-                        (int)$id,
-                        $comment->id,
-                        $file,
-                        $userId
-                    );
-                    if ($result) {
-                        $uploadedCount++;
-                    }
-                }
-            }
-        }
-
-        // NOW send notifications (after attachments are saved)
-        $this->ticketService->sendCommentNotifications((int)$id, $comment->id);
-
-        // Change status if different
-        if ($newStatus !== $ticket->status) {
-            $this->ticketService->changeStatus($ticket, $newStatus, $userId);
-        }
-
-        $successMessage = 'Comentario agregado exitosamente.';
-        if ($uploadedCount > 0) {
-            $successMessage .= " ({$uploadedCount} archivo(s) adjunto(s))";
-        }
-        $this->Flash->success($successMessage);
-        return $this->redirect(['action' => 'index']);
+        return $this->addEntityComment('ticket', (int) $id);
     }
 
     /**
@@ -409,19 +184,7 @@ class TicketsController extends AppController
      */
     public function assign($id = null)
     {
-        $this->request->allowMethod(['post', 'put']);
-
-        $ticket = $this->Tickets->get($id);
-        $agentId = (int)$this->request->getData('agent_id');
-        $userId = $this->request->getAttribute('identity')['id'] ?? 1;
-
-        if ($this->ticketService->assignTicket($ticket, $agentId, $userId)) {
-            $this->Flash->success('Ticket asignado exitosamente.');
-        } else {
-            $this->Flash->error('Error al asignar el ticket.');
-        }
-
-        return $this->redirect(['action' => 'index']);
+        return $this->assignEntity('ticket', (int) $id, $this->request->getData('agent_id'));
     }
 
     /**
@@ -432,19 +195,7 @@ class TicketsController extends AppController
      */
     public function changeStatus($id = null)
     {
-        $this->request->allowMethod(['post', 'put']);
-
-        $ticket = $this->Tickets->get($id);
-        $newStatus = $this->request->getData('status');
-        $userId = $this->request->getAttribute('identity')['id'] ?? 1;
-
-        if ($this->ticketService->changeStatus($ticket, $newStatus, $userId)) {
-            $this->Flash->success('Estado del ticket actualizado.');
-        } else {
-            $this->Flash->error('Error al cambiar el estado.');
-        }
-
-        return $this->redirect(['action' => 'index']);
+        return $this->changeEntityStatus('ticket', (int) $id, $this->request->getData('status'));
     }
 
     /**
@@ -455,20 +206,7 @@ class TicketsController extends AppController
      */
     public function changePriority($id = null)
     {
-        $this->request->allowMethod(['post', 'put']);
-
-        $ticket = $this->Tickets->get($id);
-        $newPriority = $this->request->getData('priority');
-
-        $ticket->priority = $newPriority;
-
-        if ($this->Tickets->save($ticket)) {
-            $this->Flash->success('Prioridad actualizada.');
-        } else {
-            $this->Flash->error('Error al cambiar la prioridad.');
-        }
-
-        return $this->redirect(['action' => 'view', $id]);
+        return $this->changeEntityPriority('ticket', (int) $id, $this->request->getData('priority'));
     }
 
     /**
@@ -483,7 +221,7 @@ class TicketsController extends AppController
 
         // Verify ticket exists
         $this->Tickets->get($id);
-        $tagId = (int)$this->request->getData('tag_id');
+        $tagId = (int) $this->request->getData('tag_id');
 
         $ticketTagsTable = $this->fetchTable('TicketTags');
 
@@ -547,7 +285,7 @@ class TicketsController extends AppController
     {
         $this->request->allowMethod(['post']);
 
-        $userId = (int)$this->request->getData('user_id');
+        $userId = (int) $this->request->getData('user_id');
 
         $followersTable = $this->fetchTable('TicketFollowers');
 
@@ -576,190 +314,72 @@ class TicketsController extends AppController
     }
 
     /**
-     * Download attachment
-     *
-     * @param string|null $id Attachment id
-     * @return \Cake\Http\Response File download response
-     */
-    /**
      * Dashboard - Statistics and metrics
      *
      * @return \Cake\Http\Response|null|void Renders view
      */
     public function dashboard()
     {
-        $ticketsTable = $this->fetchTable('Tickets');
-        $usersTable = $this->fetchTable('Users');
-        $commentsTable = $this->fetchTable('TicketComments');
-
-        // Get current user
-        $user = $this->Authentication->getIdentity();
-        $userRole = $user ? $user->get('role') : null;
-
         // Get date range from query params
+        $dateRange = $this->request->getQuery('range', 'all');
         $startDate = $this->request->getQuery('start_date');
         $endDate = $this->request->getQuery('end_date');
-        $dateRange = $this->request->getQuery('range', 'all'); // all, today, week, month, custom
 
-        // Set default dates based on range
-        $now = new \DateTime();
-        switch ($dateRange) {
-            case 'today':
-                $startDate = $now->format('Y-m-d');
-                $endDate = $now->format('Y-m-d');
-                break;
-            case 'week':
-                $startDate = (new \DateTime('-7 days'))->format('Y-m-d');
-                $endDate = $now->format('Y-m-d');
-                break;
-            case 'month':
-                $startDate = (new \DateTime('-30 days'))->format('Y-m-d');
-                $endDate = $now->format('Y-m-d');
-                break;
-            case 'custom':
-                // Use provided dates
-                break;
-            default:
-                // 'all' - no date filter
-                $startDate = null;
-                $endDate = null;
+        // Get statistics from service
+        $stats = $this->statisticsService->getTicketStats([
+            'date_range' => $dateRange,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ]);
+
+        $agentPerformance = $this->statisticsService->getAgentPerformance();
+        $recentActivity = $this->statisticsService->getRecentActivity();
+        $trends = $this->statisticsService->getTrendData('30days');
+
+        // Extract data for view
+        $totalTickets = $stats['total_tickets'];
+        $ticketsByStatus = $stats['tickets_by_status'];
+        $ticketsByPriority = $stats['tickets_by_priority'];
+        $recentTickets = $stats['recent_tickets'];
+        $recentResolved = $stats['recent_resolved'];
+        $unassignedTickets = $stats['unassigned_tickets'];
+        $avgResponseTime = $stats['avg_response_time'];
+        $avgResolutionTime = $stats['avg_resolution_time'];
+        $responseRate = $stats['response_rate'];
+        $resolutionRate = $stats['resolution_rate'];
+        $resolvedCount = $stats['resolved_count'];
+
+        $activeAgents = $agentPerformance['active_agents'];
+        $ticketsByAgent = $agentPerformance['tickets_by_agent'];
+
+        $topRequesters = $recentActivity['top_requesters'];
+        $totalComments = $recentActivity['total_comments'];
+        $publicComments = $recentActivity['public_comments'];
+        $internalComments = $recentActivity['internal_comments'];
+
+        $ticketsPerDay = $trends['tickets_per_day'];
+
+        // Set default dates for display
+        if ($dateRange !== 'custom') {
+            $now = new \DateTime();
+            switch ($dateRange) {
+                case 'today':
+                    $startDate = $now->format('Y-m-d');
+                    $endDate = $now->format('Y-m-d');
+                    break;
+                case 'week':
+                    $startDate = (new \DateTime('-7 days'))->format('Y-m-d');
+                    $endDate = $now->format('Y-m-d');
+                    break;
+                case 'month':
+                    $startDate = (new \DateTime('-30 days'))->format('Y-m-d');
+                    $endDate = $now->format('Y-m-d');
+                    break;
+                default:
+                    $startDate = null;
+                    $endDate = null;
+            }
         }
-
-        // Build base query with date filter
-        $baseQuery = $ticketsTable->find();
-        if ($startDate && $endDate) {
-            $baseQuery->where([
-                'Tickets.created >=' => $startDate . ' 00:00:00',
-                'Tickets.created <=' => $endDate . ' 23:59:59'
-            ]);
-        }
-
-        // Total tickets
-        $totalTickets = (clone $baseQuery)->count();
-
-        // Tickets by status
-        $ticketsByStatus = (clone $baseQuery)
-            ->select([
-                'status',
-                'count' => $baseQuery->func()->count('*')
-            ])
-            ->group('status')
-            ->all()
-            ->combine('status', 'count')
-            ->toArray();
-
-        // Tickets by priority
-        $ticketsByPriority = (clone $baseQuery)
-            ->select([
-                'priority',
-                'count' => $baseQuery->func()->count('*')
-            ])
-            ->group('priority')
-            ->all()
-            ->combine('priority', 'count')
-            ->toArray();
-
-        // Recent tickets (last 7 days)
-        $recentTickets = $ticketsTable->find()
-            ->where(['created >=' => new \DateTime('-7 days')])
-            ->count();
-
-        // Resolved tickets (last 7 days)
-        $recentResolved = $ticketsTable->find()
-            ->where([
-                'status' => 'resuelto',
-                'resolved_at >=' => new \DateTime('-7 days')
-            ])
-            ->count();
-
-        // Tickets without assignment
-        $unassignedTickets = $ticketsTable->find()
-            ->where(['assignee_id IS' => null])
-            ->count();
-
-        // Active agents
-        $activeAgents = $usersTable->find()
-            ->where([
-                'role IN' => ['admin', 'agent', 'compras'],
-                'is_active' => true
-            ])
-            ->count();
-
-        // Tickets by agent (top 5)
-        $ticketsByAgent = $ticketsTable->find()
-            ->contain(['Assignees'])
-            ->where(['assignee_id IS NOT' => null])
-            ->select([
-                'assignee_id',
-                'agent_name' => 'Assignees.name',
-                'count' => $ticketsTable->find()->func()->count('*')
-            ])
-            ->group('assignee_id')
-            ->order(['count' => 'DESC'])
-            ->limit(5)
-            ->all();
-
-        // Average response time (hours)
-        $avgResponseTime = $ticketsTable->find()
-            ->where(['first_response_at IS NOT' => null])
-            ->select([
-                'avg_hours' => $ticketsTable->find()->func()->avg(
-                    'TIMESTAMPDIFF(HOUR, created, first_response_at)'
-                )
-            ])
-            ->first();
-
-        // Average resolution time (hours)
-        $avgResolutionTime = $ticketsTable->find()
-            ->where(['resolved_at IS NOT' => null])
-            ->select([
-                'avg_hours' => $ticketsTable->find()->func()->avg(
-                    'TIMESTAMPDIFF(HOUR, created, resolved_at)'
-                )
-            ])
-            ->first();
-
-        // Tickets created per day (last 30 days)
-        $ticketsPerDay = $ticketsTable->find()
-            ->where(['created >=' => new \DateTime('-30 days')])
-            ->select([
-                'date' => 'DATE(created)',
-                'count' => $ticketsTable->find()->func()->count('*')
-            ])
-            ->group('DATE(created)')
-            ->order(['date' => 'ASC'])
-            ->all()
-            ->combine('date', 'count')
-            ->toArray();
-
-        // Most active requesters (top 5)
-        $topRequesters = $ticketsTable->find()
-            ->contain(['Requesters'])
-            ->select([
-                'requester_id',
-                'requester_name' => 'Requesters.name',
-                'requester_email' => 'Requesters.email',
-                'count' => $ticketsTable->find()->func()->count('*')
-            ])
-            ->group('requester_id')
-            ->order(['count' => 'DESC'])
-            ->limit(5)
-            ->all();
-
-        // Comments stats
-        $totalComments = $commentsTable->find()->where(['is_system_comment' => 0])->count();
-        $publicComments = $commentsTable->find()->where(['comment_type' => 'public'])->count();
-        $internalComments = $commentsTable->find()->where(['comment_type' => 'internal', 'is_system_comment' => 0])->count();
-
-        // Response rate (tickets with at least one response)
-        $ticketsWithResponse = $ticketsTable->find()
-            ->where(['first_response_at IS NOT' => null])
-            ->count();
-        $responseRate = $totalTickets > 0 ? round(($ticketsWithResponse / $totalTickets) * 100, 1) : 0;
-
-        // Resolution rate (tickets resolved / total tickets)
-        $resolvedCount = $ticketsTable->find()->where(['status' => 'resuelto'])->count();
-        $resolutionRate = $totalTickets > 0 ? round(($resolvedCount / $totalTickets) * 100, 1) : 0;
 
         $this->set(compact(
             'totalTickets',
@@ -792,33 +412,7 @@ class TicketsController extends AppController
      */
     public function bulkAssign()
     {
-        $this->request->allowMethod(['post']);
-
-        $ticketIds = array_map('intval', explode(',', $this->request->getData('ticket_ids')));
-        $agentId = (int)$this->request->getData('agent_id');
-        $user = $this->Authentication->getIdentity();
-
-        $successCount = 0;
-        $errorCount = 0;
-
-        foreach ($ticketIds as $ticketId) {
-            try {
-                $ticket = $this->Tickets->get($ticketId);
-                $this->ticketService->assignTicket($ticket, $agentId, $user->get('id'));
-                $successCount++;
-            } catch (\Exception $e) {
-                $errorCount++;
-            }
-        }
-
-        if ($successCount > 0) {
-            $this->Flash->success(__("{$successCount} ticket(s) asignado(s) correctamente."));
-        }
-        if ($errorCount > 0) {
-            $this->Flash->error(__("{$errorCount} ticket(s) no pudieron ser asignados."));
-        }
-
-        return $this->redirect(['action' => 'index']);
+        return $this->bulkAssignEntity('ticket');
     }
 
     /**
@@ -828,49 +422,7 @@ class TicketsController extends AppController
      */
     public function bulkChangePriority()
     {
-        $this->request->allowMethod(['post']);
-
-        $ticketIds = array_map('intval', explode(',', $this->request->getData('ticket_ids')));
-        $newPriority = $this->request->getData('priority');
-        $user = $this->Authentication->getIdentity();
-
-        $successCount = 0;
-        $errorCount = 0;
-
-        foreach ($ticketIds as $ticketId) {
-            try {
-                $ticket = $this->Tickets->get($ticketId);
-                $ticket->priority = $newPriority;
-
-                if ($this->Tickets->save($ticket)) {
-                    // Log the change in ticket history
-                    $ticketHistoryTable = $this->fetchTable('TicketHistory');
-                    $ticketHistoryTable->logChange(
-                        $ticket->id,
-                        'priority',
-                        $ticket->getOriginal('priority'),
-                        $newPriority,
-                        $user->get('id'),
-                        "Prioridad cambiada de {$ticket->getOriginal('priority')} a {$newPriority}"
-                    );
-
-                    $successCount++;
-                } else {
-                    $errorCount++;
-                }
-            } catch (\Exception $e) {
-                $errorCount++;
-            }
-        }
-
-        if ($successCount > 0) {
-            $this->Flash->success(__("{$successCount} ticket(s) actualizado(s) correctamente."));
-        }
-        if ($errorCount > 0) {
-            $this->Flash->error(__("{$errorCount} ticket(s) no pudieron ser actualizados."));
-        }
-
-        return $this->redirect(['action' => 'index']);
+        return $this->bulkChangeEntityPriority('ticket');
     }
 
     /**
@@ -880,51 +432,7 @@ class TicketsController extends AppController
      */
     public function bulkAddTag()
     {
-        $this->request->allowMethod(['post']);
-
-        $ticketIds = array_map('intval', explode(',', $this->request->getData('ticket_ids')));
-        $tagId = (int)$this->request->getData('tag_id');
-
-        $successCount = 0;
-        $errorCount = 0;
-
-        $ticketTagsTable = $this->fetchTable('TicketTags');
-
-        foreach ($ticketIds as $ticketId) {
-            try {
-                // Check if tag is already added to this ticket
-                $exists = $ticketTagsTable->exists([
-                    'ticket_id' => $ticketId,
-                    'tag_id' => $tagId
-                ]);
-
-                if (!$exists) {
-                    $ticketTag = $ticketTagsTable->newEntity([
-                        'ticket_id' => $ticketId,
-                        'tag_id' => $tagId
-                    ]);
-
-                    if ($ticketTagsTable->save($ticketTag)) {
-                        $successCount++;
-                    } else {
-                        $errorCount++;
-                    }
-                } else {
-                    $successCount++; // Already has the tag
-                }
-            } catch (\Exception $e) {
-                $errorCount++;
-            }
-        }
-
-        if ($successCount > 0) {
-            $this->Flash->success(__("Etiqueta agregada a {$successCount} ticket(s)."));
-        }
-        if ($errorCount > 0) {
-            $this->Flash->error(__("{$errorCount} ticket(s) no pudieron ser etiquetados."));
-        }
-
-        return $this->redirect(['action' => 'index']);
+        return $this->bulkAddTagEntity('ticket');
     }
 
     /**
@@ -934,50 +442,111 @@ class TicketsController extends AppController
      */
     public function bulkDelete()
     {
-        $this->request->allowMethod(['post']);
-
-        $ticketIds = array_map('intval', explode(',', $this->request->getData('ticket_ids')));
-
-        $successCount = 0;
-        $errorCount = 0;
-
-        foreach ($ticketIds as $ticketId) {
-            try {
-                $ticket = $this->Tickets->get($ticketId);
-
-                if ($this->Tickets->delete($ticket)) {
-                    $successCount++;
-                } else {
-                    $errorCount++;
-                }
-            } catch (\Exception $e) {
-                $errorCount++;
-            }
-        }
-
-        if ($successCount > 0) {
-            $this->Flash->success(__("{$successCount} ticket(s) eliminado(s) correctamente."));
-        }
-        if ($errorCount > 0) {
-            $this->Flash->error(__("{$errorCount} ticket(s) no pudieron ser eliminados."));
-        }
-
-        return $this->redirect(['action' => 'index']);
+        return $this->bulkDeleteEntity('ticket');
     }
 
+    /**
+     * Download ticket attachment
+     *
+     * @param string|null $id Attachment id
+     * @return \Cake\Http\Response File download response
+     */
     public function downloadAttachment($id = null)
     {
-        $attachmentsTable = $this->fetchTable('Attachments');
-        $attachment = $attachmentsTable->get($id);
+        return $this->downloadEntityAttachment('ticket', (int) $id);
+    }
 
-        $filePath = $this->attachmentService->getFullPath($attachment);
+    /**
+     * AJAX endpoint for lazy loading ticket history
+     * PERFORMANCE FIX: Only loads when history tab is opened
+     *
+     * @param string|null $id Ticket id
+     * @return void JSON response
+     */
+    public function history($id = null)
+    {
+        $this->historyEntity('ticket', (int)$id);
+    }
 
-        if (!file_exists($filePath)) {
-            throw new \Cake\Http\Exception\NotFoundException('Archivo no encontrado.');
+    /**
+     * Convert ticket to compra
+     *
+     * @param int|null $id Ticket id
+     * @return \Cake\Http\Response|null Redirects to compra view
+     */
+    public function convertToCompra($id = null)
+    {
+        $this->request->allowMethod(['post']);
+
+        $user = $this->Authentication->getIdentity();
+        // Allow admin, agent, and compras users to convert tickets
+        $allowedRoles = ['admin', 'agent', 'compras'];
+        if (!$user || !in_array($user->role, $allowedRoles)) {
+            $this->Flash->error(__('No tienes permiso para esta acción.'));
+            return $this->redirect(['action' => 'view', $id]);
         }
 
-        return $this->response
-            ->withFile($filePath, ['download' => true, 'name' => $attachment->original_filename])
-            ->withType($attachment->mime_type);
+        try {
+            $ticket = $this->Tickets->get($id, [
+                'contain' => ['TicketComments', 'Attachments']
+            ]);
+
+            $systemConfig = $this->viewBuilder()->getVar('systemConfig');
+            $comprasService = new \App\Service\ComprasService($systemConfig);
+
+            $compraData = [
+                'assignee_id' => $this->request->getData('assignee_id'),
+                'user_id' => $user->id,
+            ];
+
+            $compra = $comprasService->createFromTicket($ticket, $compraData);
+
+            if ($compra) {
+
+                $ticket->status = 'resuelto';
+                $ticket->resolved_at = new \Cake\I18n\DateTime();
+
+                $ticketCommentsTable = $this->fetchTable('TicketComments');
+                $ticketCommentsTable->save($ticketCommentsTable->newEntity([
+                    'ticket_id' => $ticket->id,
+                    'user_id' => $user->id,
+                    'comment_type' => 'internal',
+                    'body' => "Ticket convertido a Compra",
+                    'is_system_comment' => true,
+                    'sent_as_email' => false,
+                ]));
+
+                $this->Tickets->save($ticket);
+
+                $ticketHistoryTable = $this->fetchTable('TicketHistory');
+                $ticketHistoryTable->save($ticketHistoryTable->newEntity([
+                    'ticket_id' => $ticket->id,
+                    'changed_by' => $user->id,
+                    'field_name' => 'converted_to_compra',
+                    'old_value' => null,
+                    'new_value' => $compra->compra_number,
+                    'description' => "Convertido a Compra #{$compra->compra_number}",
+                ]));
+
+                $comprasService->copyTicketData($ticket, $compra);
+
+                $this->Flash->success(__(
+                    'Ticket convertido exitosamente a Compra'
+                ));
+
+                return $this->redirect([
+                    'controller' => 'Tickets',
+                    'action' => 'index',
+                ]);
+            }
+
+            $this->Flash->error(__('Error al convertir ticket a compra.'));
+            return $this->redirect(['action' => 'view', $id]);
+
+        } catch (\Exception $e) {
+            \Cake\Log\Log::error('Error en convertToCompra: ' . $e->getMessage());
+            $this->Flash->error(__('Error al procesar la conversión: {0}', $e->getMessage()));
+            return $this->redirect(['action' => 'view', $id]);
+        }
     }
 }

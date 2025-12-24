@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use App\Utility\SettingsEncryptionTrait;
 use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
@@ -21,6 +22,7 @@ use App\Service\TicketService;
 class ImportGmailCommand extends Command
 {
     use LocatorAwareTrait;
+    use SettingsEncryptionTrait;
 
     /**
      * Hook method for defining this command's option parser.
@@ -47,6 +49,12 @@ class ImportGmailCommand extends Command
             'default' => 'is:unread',
         ]);
 
+        $parser->addOption('delay', [
+            'short' => 'd',
+            'help' => 'Delay between messages in milliseconds',
+            'default' => 1000,
+        ]);
+
         return $parser;
     }
 
@@ -59,12 +67,14 @@ class ImportGmailCommand extends Command
      */
     public function execute(Arguments $args, ConsoleIo $io): ?int
     {
-        $maxResults = (int)$args->getOption('max');
-        $query = (string)$args->getOption('query');
+        $maxResults = (int) $args->getOption('max');
+        $query = (string) $args->getOption('query');
+        $delay = (int) $args->getOption('delay');
 
         $io->out('Starting Gmail import...');
         $io->out("Query: {$query}");
         $io->out("Max results: {$maxResults}");
+        $io->out("Delay: {$delay}ms");
         $io->hr();
 
         try {
@@ -76,9 +86,12 @@ class ImportGmailCommand extends Command
                 return self::CODE_ERROR;
             }
 
+            // Load system settings once to pass to services (avoid redundant queries)
+            $systemConfig = $this->getSystemSettings();
+
             // Initialize services
             $gmailService = new GmailService($config);
-            $ticketService = new TicketService();
+            $ticketService = new TicketService($systemConfig);
 
             // Get messages
             $io->out('Fetching messages from Gmail...');
@@ -96,28 +109,32 @@ class ImportGmailCommand extends Command
             $skipped = 0;
             $errors = 0;
 
+            // Pre-fetch existing message IDs for batch checking
+            $ticketsTable = $this->fetchTable('Tickets');
+            $existingMessageIds = $ticketsTable->find()
+                ->select(['gmail_message_id'])
+                ->where(['gmail_message_id IN' => $messageIds])
+                ->all()
+                ->extract('gmail_message_id')
+                ->toArray();
+
             // Process each message
             foreach ($messageIds as $index => $messageId) {
                 $io->out("[" . ($index + 1) . "/" . count($messageIds) . "] Processing message: {$messageId}");
 
                 try {
+                    // Check if ticket already exists (using pre-fetched data)
+                    if (in_array($messageId, $existingMessageIds)) {
+                        $io->verbose("  Skipped: Ticket already exists");
+                        $skipped++;
+                        continue;
+                    }
+
                     // Parse message
                     $emailData = $gmailService->parseMessage($messageId);
 
                     $io->verbose("  From: {$emailData['from']}");
                     $io->verbose("  Subject: {$emailData['subject']}");
-
-                    // Check if ticket already exists
-                    $ticketsTable = $this->fetchTable('Tickets');
-                    $existing = $ticketsTable->find()
-                        ->where(['gmail_message_id' => $messageId])
-                        ->first();
-
-                    if ($existing) {
-                        $io->verbose("  Skipped: Ticket already exists (#{$existing->ticket_number})");
-                        $skipped++;
-                        continue;
-                    }
 
                     // Create ticket
                     $ticket = $ticketService->createFromEmail($emailData);
@@ -142,8 +159,10 @@ class ImportGmailCommand extends Command
                     $errors++;
                 }
 
-                // Small delay to avoid rate limits
-                usleep(100000); // 0.1 seconds
+                // Configurable delay to avoid rate limits
+                if ($delay > 0) {
+                    usleep($delay * 1000); // Convert ms to microseconds
+                }
             }
 
             // Summary
@@ -168,7 +187,7 @@ class ImportGmailCommand extends Command
     }
 
     /**
-     * Get Gmail configuration from system settings
+     * Get Gmail configuration from system settings (with automatic decryption)
      *
      * @return array
      */
@@ -182,9 +201,33 @@ class ImportGmailCommand extends Command
         $config = [];
         foreach ($settings as $setting) {
             $key = str_replace('gmail_', '', $setting->setting_key);
-            $config[$key] = $setting->setting_value;
+            // Decrypt sensitive values
+            $config[$key] = $this->shouldEncrypt($setting->setting_key)
+                ? $this->decryptSetting($setting->setting_value, $setting->setting_key)
+                : $setting->setting_value;
         }
 
         return $config;
+    }
+
+    /**
+     * Get all system settings (for passing to services, with automatic decryption)
+     *
+     * @return array
+     */
+    private function getSystemSettings(): array
+    {
+        $settingsTable = $this->fetchTable('SystemSettings');
+        $settings = $settingsTable->find()
+            ->select(['setting_key', 'setting_value'])
+            ->toArray();
+
+        $config = [];
+        foreach ($settings as $setting) {
+            $config[$setting->setting_key] = $setting->setting_value;
+        }
+
+        // Decrypt sensitive values automatically
+        return $this->processSettings($config);
     }
 }

@@ -1,76 +1,162 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <?= $this->Html->charset() ?>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Iniciar Sesión - <?= h($systemTitle ?? 'Sistema de Soporte') ?></title>
+<?php 
+$this->assign('title', 'Iniciar Sesión');
+?>
+<div class="d-flex align-items-center justify-content-center" style="min-height: 100dvh; background-color: var(--bg-color);">
+    <section class="shadow overflow-hidden bg-white d-flex rounded-3 border" style="width: 600px; max-width: 95%; height: 500px; max-height: 95%; overflow: hidden;">
+        <div class="w-25 position-relative" style="background: linear-gradient(135deg, var(--bg-color) 0%, #e9ecef 100%);">
+            <!-- Círculos decorativos animados -->
+            <div class="login-circles">
+                <!-- Círculos grandes -->
+                <div class="circle circle-orange" style="width: 120px; height: 120px; top: -30px; left: -30px;"></div>
+                <div class="circle circle-green" style="width: 90px; height: 90px; top: 180px; left: -20px; animation-delay: 0.5s;"></div>
+                <div class="circle circle-brown" style="width: 100px; height: 100px; bottom: -20px; left: 0px; animation-delay: 1s;"></div>
+                <div class="circle circle-green" style="width: 110px; height: 110px; top: 320px; right: -35px; animation-delay: 1.3s;"></div>
 
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                <!-- Círculos medianos -->
+                <div class="circle circle-orange" style="width: 50px; height: 50px; top: 100px; right: 10px; animation-delay: 0.3s;"></div>
+                <div class="circle circle-green" style="width: 60px; height: 60px; top: 120px; right: -10px; animation-delay: 0.8s;"></div>
+                <div class="circle circle-brown" style="width: 45px; height: 45px; top: 180px; left: 40px; animation-delay: 1.2s;"></div>
+                <div class="circle circle-orange" style="width: 55px; height: 55px; top: 420px; left: 55px; animation-delay: 2.1s;"></div>
 
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-
-    <!-- Custom Styles -->
-    <?= $this->Html->css(['styles']) ?>
-</head>
-<body style="max-width: 600px; margin: auto;">
-    <div class="p-4 d-flex flex-column align-items-center justify-content-center" style="min-height: 100dvh;">
-        <div class="px-4">
-            <div class="d-flex align-items-center gap-3 mb-2">
-                <img src="<?= $this->Url->build('favicon.ico') ?>" width="60">
-                <h2><?= h($systemTitle ?? 'Sistema de Soporte') ?></h2>
+                <!-- Círculos pequeños -->
+                <div class="circle circle-orange" style="width: 25px; height: 25px; top: 60px; left: 50px; animation-delay: 0.6s;"></div>
+                <div class="circle circle-green" style="width: 30px; height: 30px; top: 250px; right: 20px; animation-delay: 1.5s;"></div>
+                <div class="circle circle-brown" style="width: 20px; height: 20px; bottom: 200px; left: 60px; animation-delay: 0.9s;"></div>
+                <div class="circle circle-orange" style="width: 35px; height: 35px; bottom: 60px; right: 35px; animation-delay: 1.8s;"></div>
+                <div class="circle circle-brown" style="width: 28px; height: 28px; top: 140px; left: 25px; animation-delay: 2.3s;"></div>
             </div>
-            <p class="text-muted">Inicia sesión para continuar</p>
+
+            <style>
+                .login-circles {
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                }
+
+                .circle {
+                    position: absolute;
+                    border-radius: 50%;
+                    opacity: 1;
+                    animation: float 6s ease-in-out infinite;
+                }
+
+                .circle-orange {
+                    background: radial-gradient(circle at 30% 30%, rgba(205, 106, 21, 1), rgba(205, 106, 21, 0.5));
+                }
+
+                .circle-green {
+                    background: radial-gradient(circle at 30% 30%, rgba(0, 168, 94, 1), rgba(0, 168, 94, 0.5));
+                }
+
+                .circle-brown {
+                    background: radial-gradient(circle at 30% 30%, rgba(143, 87, 54, 1), rgba(143, 87, 54, 0.5));
+                }
+
+                @keyframes float {
+                    0%, 100% {
+                        transform: translateY(0) scale(1);
+                    }
+                    25% {
+                        transform: translateY(-15px) scale(1.05);
+                    }
+                    50% {
+                        transform: translateY(-10px) scale(0.95);
+                    }
+                    75% {
+                        transform: translateY(-20px) scale(1.02);
+                    }
+                }
+
+                /* Variaciones aleatorias en la animación */
+                .circle:nth-child(odd) {
+                    animation-duration: 7s;
+                }
+
+                .circle:nth-child(even) {
+                    animation-duration: 5s;
+                }
+
+                .circle:nth-child(3n) {
+                    animation-direction: reverse;
+                }
+            </style>
         </div>
-
-        <?= $this->Flash->render() ?>
-
-        <div class="w-100 px-5">
-            <?= $this->Form->create(null) ?>
-                <div class="mb-3">
-                    <label for="email" class="form-label">
-                        Correo Electrónico
-                    </label>
-                    <?= $this->Form->email('email', [
-                        'class' => 'form-control',
-                        'id' => 'email',
-                        'placeholder' => 'ejemplo@correo.com',
-                        'required' => true,
-                        'autofocus' => true
-                    ]) ?>
+        <div class="d-flex flex-column justify-content-between w-75 p-5 pb-2">
+            <div class="">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="bg-white d-flex justify-content-center aling-items-center rounded-circle" style="width: 42px; height: 42px;">
+                        <img class="my-auto" src="<?= $this->Url->build('img/logo.png') ?>" alt="Logo" height="50">
+                    </div>
+                    <div class="gap-0 d-flex flex-column">
+                        <h2 class="fs-4 m-0 lh-1">
+                            <?= h($systemTitle) ?>
+                        </h2>
+                    </div>
                 </div>
+                <p class="text-muted fw-light mt-1">Inicia sesión para continuar</p>
+            </div>
+            <?= $this->Flash->render() ?>
+            <!-- Loading Spinner -->
+            <?= $this->element('loading_spinner', ['message' => 'Iniciando sesión...']) ?>
 
-                <div class="mb-4">
-                    <label for="password" class="form-label">
-                        Contraseña
-                    </label>
-                    <?= $this->Form->password('password', [
-                        'class' => 'form-control',
-                        'id' => 'password',
-                        'placeholder' => '••••••••',
-                        'required' => true
+            <div class="">
+                <?= $this->Form->create(null) ?>
+                    <div class="mb-3">
+                        <label for="email" class="form-label fw-normal">
+                            Correo Electrónico
+                        </label>
+                        <?= $this->Form->email('email', [
+                            'class' => 'form-control',
+                            'id' => 'email',
+                            'placeholder' => 'ejemplo@correo.com',
+                            'required' => true,
+                            'autofocus' => true,
+                            'class' => 'form-control shadow-none fw-normal'
+                        ]) ?>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label fw-normal">
+                            Contraseña
+                        </label>
+                        <?= $this->Form->password('password', [
+                            'class' => 'form-control',
+                            'id' => 'password',
+                            'placeholder' => '••••••••',
+                            'required' => true,
+                            'class' => 'form-control shadow-none fw-normal'
+                        ]) ?>
+                    </div>
+
+                    <?= $this->Form->button('Iniciar Sesión', [
+                        'class' => 'btn text-white fw-semibold shadow-sm',
+                        'style' => 'background-color: #CD6A15;',
+                        'escape' => false,
                     ]) ?>
-                </div>
-
-                <?= $this->Form->button('Iniciar Sesión', [
-                    'class' => 'btn w-100 text-white',
-                    'style' => 'background-color: #CD6A15',
-                    'escape' => false
-                ]) ?>
-            <?= $this->Form->end() ?>
+                <?= $this->Form->end() ?>
+            </div>
+            <div class="text-center mt-5">
+                <small class="fw-light d-flex flex-column gap-0" style="font-size: 13px;">
+                    &copy; <?= date('Y') ?> Compañía Operadora Portuaria Cafetera S.A.
+                    <span>Todos los derechos reservados.</span>
+                </small>
+            </div>
         </div>
-        <div class="text-center mt-4 pt-3 border-top">
-            <small class="text-muted">
-                &copy; <?= date('Y') ?> <?= h($systemTitle ?? 'Sistema de Soporte') ?> - Todos los derechos reservados
-            </small>
-        </div>
-    </div>
+    </section>
 
     <!-- Bootstrap 5 JS Bundle (includes Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Flash Messages Auto-Hide -->
     <?= $this->Html->script('flash-messages') ?>
-</body>
-</html>
+
+    <!-- Loading Spinner -->
+    <?= $this->Html->script('loading-spinner') ?>
+    <script>
+        // Mostrar spinner al enviar el formulario de login
+        document.querySelector('form').addEventListener('submit', function(e) {
+            LoadingSpinner.show('Iniciando sesión...');
+        });
+    </script>
+</div>

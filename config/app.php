@@ -51,7 +51,7 @@ return [
         'namespace' => 'App',
         'encoding' => env('APP_ENCODING', 'UTF-8'),
         'defaultLocale' => env('APP_DEFAULT_LOCALE', 'en_US'),
-        'defaultTimezone' => env('APP_DEFAULT_TIMEZONE', 'UTC'),
+        'defaultTimezone' => env('APP_DEFAULT_TIMEZONE', 'America/Bogota'),
         'base' => false,
         'dir' => 'src',
         'webroot' => 'webroot',
@@ -100,6 +100,20 @@ return [
             'className' => FileEngine::class,
             'path' => CACHE,
             'url' => env('CACHE_DEFAULT_URL', null),
+        ],
+
+        /*
+         * Configure the cache for core framework files.
+         * Used for system settings and core application data.
+         * Duration will be set to '+2 minutes' in bootstrap.php when debug = true
+         */
+        '_cake_core_' => [
+            'className' => FileEngine::class,
+            'prefix' => 'myapp_cake_core_',
+            'path' => CACHE . 'persistent' . DS,
+            'serialize' => true,
+            'duration' => '+1 hours',
+            'url' => env('CACHE_CAKECORE_URL', null),
         ],
 
         /*
@@ -283,7 +297,7 @@ return [
             'className' => Connection::class,
             'driver' => Mysql::class,
             'persistent' => false,
-            'timezone' => 'UTC',
+            'timezone' => 'America/Bogota',
 
             'host' => 'localhost',
             'username' => 'root',
@@ -331,7 +345,7 @@ return [
             'className' => Connection::class,
             'driver' => Mysql::class,
             'persistent' => false,
-            'timezone' => 'UTC',
+            'timezone' => 'America/Bogota',
             'encoding' => 'utf8mb4',
             'flags' => [],
             'cacheMetadata' => true,

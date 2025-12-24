@@ -5,10 +5,10 @@
  */
 $this->assign('title', 'Editar Etiqueta');
 ?>
-<div class="py-3 px-3 overflow-auto scroll" style="max-width: 800px; margin: 0 auto; width: 100%;">
-    <div class="page-header">
-        <h1>✏️ Editar Etiqueta</h1>
-        <p>Modificar información de: <strong><?= h($tag->name) ?></strong></p>
+<div class="p-5" style="max-width: 800px; margin: 0 auto; width: 100%;">
+    <div>
+        <h3><i class="bi bi-tag"></i> Editar Etiqueta</h3>
+        <p class="fw-light">Modificar información de: <strong><?= h($tag->name) ?></strong></p>
     </div>
 
     <?= $this->Flash->render() ?>
@@ -63,11 +63,12 @@ $this->assign('title', 'Editar Etiqueta');
         </div>
 
         <div class="form-actions">
-            <?= $this->Form->button('💾 Guardar Cambios', [
-                'class' => 'btn btn-primary'
+            <?= $this->Form->button('<i class="bi bi-arrow-up-circle"></i> Guardar Cambios', [
+                'class' => 'btn btn-success', 'escapeTitle' => false
             ]) ?>
-            <?= $this->Html->link('Cancelar', ['action' => 'tags'], [
-                'class' => 'btn btn-secondary'
+            <?= $this->Html->link('<i class="bi bi-x-circle"></i> Cancelar', ['action' => 'tags'], [
+                'class' => 'btn btn-secondary',
+                'escape' => false
             ]) ?>
         </div>
     </div>
