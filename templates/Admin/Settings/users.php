@@ -24,7 +24,7 @@ $this->assign('title', 'Usuarios');
 
     <?= $this->Flash->render() ?>
 
-    <div class="overflow-auto scroll">
+    <div class="table-scroll">
         <table class="table table-hover">
             <thead>
                 <tr>

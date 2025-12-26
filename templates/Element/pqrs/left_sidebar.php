@@ -1,6 +1,11 @@
 <!-- Left Sidebar - PQRS Info (with independent scroll) -->
 <div class="sidebar-left d-flex flex-column p-3">
-    <div class="sidebar-scroll flex-grow-1 overflow-auto p-3 shadow-sm bg-white" style="border-radius: 8px;">
+    <div class="sidebar-scroll flex-grow-1 overflow-auto shadow-sm bg-white" style="border-radius: 8px;">
+        <div class="p-3">
+        <?php
+        // Check if PQRS is locked (in final status)
+        $isLocked = $isLocked ?? in_array($pqrs->status, ['resuelto', 'cerrado']);
+        ?>
         <section class="mb-4">
             <h3 class="fs-6 fw-semibold mb-3">Información del PQRS</h3>
 
@@ -11,7 +16,12 @@
 
             <div class="mb-3">
                 <label class="small text-muted text-muted fw-semibold mb-1">Estado:</label>
-                <div><?= $this->Pqrs->statusBadge($pqrs->status) ?></div>
+                <div>
+                    <?= $this->Pqrs->statusBadge($pqrs->status) ?>
+                    <?php if ($isLocked): ?>
+                        <i class="bi bi-lock-fill text-muted" title="Solicitud cerrada"></i>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <div class="mb-3">
@@ -25,6 +35,7 @@
                 ], [
                     'value' => $pqrs->priority,
                     'class' => 'form-select form-select-sm',
+                    'disabled' => $isLocked,
                     'onchange' => 'this.form.submit()'
                 ]) ?>
                 <?= $this->Form->end() ?>
@@ -43,9 +54,11 @@
                 'empty' => '-- Sin asignar --',
                 'value' => $pqrs->assignee_id,
                 'class' => 'form-select form-select-sm',
+                'disabled' => $isLocked,
                 'id' => 'agent-select'
             ]) ?>
             <?= $this->Form->end() ?>
         </section>
+        </div>
     </div>
 </div>

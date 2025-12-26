@@ -167,19 +167,19 @@ class ComprasTable extends Table
                 case 'sin_asignar':
                     $query->where([
                         'Compras.assignee_id IS' => null,
-                        'Compras.status NOT IN' => ['completado', 'rechazado']
+                        'Compras.status NOT IN' => ['completado', 'rechazado', 'convertido']
                     ]);
                     break;
                 case 'mis_compras':
                     if ($userId) {
                         $query->where([
                             'Compras.assignee_id' => $userId,
-                            'Compras.status NOT IN' => ['completado', 'rechazado']
+                            'Compras.status NOT IN' => ['completado', 'rechazado', 'convertido']
                         ]);
                     }
                     break;
                 case 'todos_sin_resolver':
-                    $query->where(['Compras.status NOT IN' => ['completado', 'rechazado']]);
+                    $query->where(['Compras.status NOT IN' => ['completado', 'rechazado', 'convertido']]);
                     break;
                 case 'nuevos':
                     $query->where(['Compras.status' => 'nuevo']);
@@ -224,6 +224,10 @@ class ComprasTable extends Table
                     'Requesters.email LIKE' => '%' . $search . '%',
                 ]
             ]);
+            // Exclude converted compras from search unless explicitly viewing convertidos
+            if ($view !== 'convertidos') {
+                $query->where(['Compras.status !=' => 'convertido']);
+            }
         }
 
         // Filtros específicos

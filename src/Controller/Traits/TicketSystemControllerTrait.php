@@ -75,6 +75,12 @@ trait TicketSystemControllerTrait
             $entityName = 'PQRS';
         }
 
+        // Check if entity is locked (in final status)
+        if ($this->isEntityLocked($entityType, $entity)) {
+            $this->Flash->error(__("No se puede modificar una {$entityName} en estado final."));
+            return $this->redirect(['action' => $redirectAction]);
+        }
+
         // Perform assignment
         $result = $service->assign($entity, $assigneeId, $userId);
 
@@ -112,12 +118,28 @@ trait TicketSystemControllerTrait
         if ($entityType === 'ticket') {
             $entity = $this->Tickets->get($entityId);
             $service = $this->ticketService;
+            $entityName = 'solicitud';
         } elseif ($entityType === 'compra') {
             $entity = $this->Compras->get($entityId);
             $service = $this->comprasService;
+            $entityName = 'compra';
         } else {
             $entity = $this->Pqrs->get($entityId);
             $service = $this->pqrsService;
+            $entityName = 'solicitud';
+        }
+
+        // Check if entity is locked (in final status) - but allow reopening
+        // Only block if trying to change FROM a final status TO another final status
+        // or FROM a final status to a non-final status (except when explicitly reopening)
+        $finalStatuses = $this->getResolvedStatuses($entityType);
+        $isCurrentlyLocked = in_array($entity->status, $finalStatuses, true);
+        $isTargetFinal = in_array($newStatus, $finalStatuses, true);
+
+        // Block changes FROM final status (unless reopening logic is explicitly allowed in service)
+        if ($isCurrentlyLocked && $isTargetFinal) {
+            $this->Flash->error(__("No se puede cambiar el estado de una {$entityName} que ya está cerrada."));
+            return $this->redirect(['action' => $redirectAction, $entityId]);
         }
 
         // Perform status change
@@ -157,12 +179,21 @@ trait TicketSystemControllerTrait
         if ($entityType === 'ticket') {
             $entity = $this->Tickets->get($entityId);
             $service = $this->ticketService;
+            $entityName = 'solicitud';
         } elseif ($entityType === 'compra') {
             $entity = $this->Compras->get($entityId);
             $service = $this->comprasService;
+            $entityName = 'compra';
         } else {
             $entity = $this->Pqrs->get($entityId);
             $service = $this->pqrsService;
+            $entityName = 'solicitud';
+        }
+
+        // Check if entity is locked (in final status)
+        if ($this->isEntityLocked($entityType, $entity)) {
+            $this->Flash->error(__("No se puede modificar la prioridad de una {$entityName} en estado final."));
+            return $this->redirect(['action' => $redirectAction, $entityId]);
         }
 
         // Perform priority change
@@ -194,6 +225,18 @@ trait TicketSystemControllerTrait
         // Get current user
         $user = $this->Authentication->getIdentity();
         $userId = $user ? $user->get('id') : null;
+
+        // Get entity to check if locked
+        $components = $this->getEntityComponents($entityType);
+        $table = $components['table'];
+        $entity = $table->get($entityId);
+
+        // Check if entity is locked (in final status)
+        if ($this->isEntityLocked($entityType, $entity)) {
+            $entityName = $components['displayName'];
+            $this->Flash->error(__("No se pueden agregar comentarios a una {$entityName} en estado final."));
+            return $this->redirect(['action' => 'view', $entityId]);
+        }
 
         // Get form data and files
         $data = $this->request->getData();
@@ -682,7 +725,15 @@ trait TicketSystemControllerTrait
 
         // Apply sorting
         $validSortFields = $config['validSortFields'] ?? $this->getValidSortFields($entityType);
-        if (in_array($sortField, $validSortFields)) {
+
+        // Special handling for resolved views: sort by resolved_at by default
+        $resolvedViews = ['resueltos', 'resueltas', 'completados'];
+        $isResolvedView = in_array($view, $resolvedViews);
+
+        if ($isResolvedView && $this->request->getQuery('sort') === null) {
+            // For resolved views without explicit sort, order by resolved_at descending
+            $query->orderBy([$tableAlias . '.resolved_at' => 'DESC']);
+        } elseif (in_array($sortField, $validSortFields)) {
             $query->orderBy([$tableAlias . '.' . $sortField => strtoupper($sortDirection)]);
         } else {
             $query->orderBy([$tableAlias . '.' . $config['defaultSort'] => 'DESC']);
@@ -1019,6 +1070,7 @@ trait TicketSystemControllerTrait
             'statuses' => $selectableStatuses,
             'priorities' => $this->getPriorityConfig($entityType),
             'resolvedStatuses' => $this->getResolvedStatuses($entityType),
+            'isLocked' => $this->isEntityLocked($entityType, $entity),
         ]);
 
         $this->set($viewVars);

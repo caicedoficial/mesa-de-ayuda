@@ -40,6 +40,8 @@ class TicketComment extends Entity
         'is_system_comment' => true,
         'gmail_message_id' => true,
         'sent_as_email' => true,
+        'email_to' => true,
+        'email_cc' => true,
         'created' => true,
         'ticket' => true,
         'user' => true,

@@ -301,7 +301,7 @@ class ComprasHelper extends Helper
         }
 
         $sla = $this->getSlaStatus($compra);
-        $dateFormatted = $compra->sla_due_date->format('h:m a, d M');
+        $dateFormatted = $compra->sla_due_date->format('h:m a, d');
 
         $html = '<div class="d-flex align-items-center gap-2">';
         $html .= sprintf('<i class="%s %s"></i>', h($sla['icon']), h($sla['textColor']));

@@ -203,6 +203,8 @@ class ComprasService
      * @param string $type Comment type ('public' or 'internal')
      * @param bool $isSystem Is system comment
      * @param bool $sendNotifications Send notifications (Email ONLY, no WhatsApp)
+     * @param array|null $emailTo Array of TO recipients [{'name': '...', 'email': '...'}]
+     * @param array|null $emailCc Array of CC recipients [{'name': '...', 'email': '...'}]
      * @return \Cake\Datasource\EntityInterface|null
      */
     public function addComment(
@@ -211,7 +213,9 @@ class ComprasService
         string $body,
         string $type = 'public',
         bool $isSystem = false,
-        bool $sendNotifications = false  // FIXED: Align with trait default
+        bool $sendNotifications = false,  // FIXED: Align with trait default
+        ?array $emailTo = null,
+        ?array $emailCc = null
     ): ?\Cake\Datasource\EntityInterface {
         $comprasCommentsTable = $this->fetchTable('ComprasComments');
         $comprasTable = $this->fetchTable('Compras');
@@ -230,6 +234,16 @@ class ComprasService
                 'is_system_comment' => $isSystem,
                 'sent_as_email' => false,  // Not used for compras
             ];
+
+            // Add email recipients if provided (only for public comments)
+            if ($type === 'public' && !$isSystem) {
+                if (is_array($emailTo) && count($emailTo) > 0) {
+                    $data['email_to'] = json_encode($emailTo);
+                }
+                if (is_array($emailCc) && count($emailCc) > 0) {
+                    $data['email_cc'] = json_encode($emailCc);
+                }
+            }
 
             $comment = $comprasCommentsTable->newEntity($data);
 

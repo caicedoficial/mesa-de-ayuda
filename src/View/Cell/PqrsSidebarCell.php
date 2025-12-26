@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\View\Cell;
 
 use Cake\I18n\DateTime;
-use Cake\ORM\TableRegistry;
+use Cake\ORM\Locator\LocatorAwareTrait;
 use Cake\View\Cell;
 
 /**
@@ -14,6 +14,7 @@ use Cake\View\Cell;
  */
 class PqrsSidebarCell extends Cell
 {
+    use LocatorAwareTrait;
     /**
      * Display method
      *
@@ -24,8 +25,8 @@ class PqrsSidebarCell extends Cell
      */
     public function display(string $currentView = 'todos_sin_resolver', ?string $userRole = null, ?int $userId = null): void
     {
-        $pqrsTable = TableRegistry::getTableLocator()->get('Pqrs');
-        $usersTable = TableRegistry::getTableLocator()->get('Users');
+        $pqrsTable = $this->fetchTable('Pqrs');
+        $usersTable = $this->fetchTable('Users');
 
         // Get current user object for profile image
         $currentUser = null;

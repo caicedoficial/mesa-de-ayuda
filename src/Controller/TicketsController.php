@@ -28,6 +28,35 @@ class TicketsController extends AppController
     private StatisticsService $statisticsService;
 
     /**
+     * beforeFilter callback - Redirect users based on their role
+     *
+     * @param \Cake\Event\EventInterface<\Cake\Controller\Controller> $event Event
+     * @return \Cake\Http\Response|null|void
+     */
+    public function beforeFilter(\Cake\Event\EventInterface $event)
+    {
+        parent::beforeFilter($event);
+
+        $user = $this->Authentication->getIdentity();
+
+        if ($user) {
+            $role = $user->get('role');
+
+            // Redirect compras users to their module
+            if ($role === 'compras') {
+                $this->Flash->error(__('No tienes permiso para acceder al módulo de tickets.'));
+                return $this->redirect(['controller' => 'Compras', 'action' => 'index']);
+            }
+
+            // Redirect servicio_cliente users to PQRS module
+            if ($role === 'servicio_cliente') {
+                $this->Flash->error(__('No tienes permiso para acceder al módulo de tickets.'));
+                return $this->redirect(['controller' => 'Pqrs', 'action' => 'index']);
+            }
+        }
+    }
+
+    /**
      * Initialize
      *
      * @return void
@@ -67,12 +96,6 @@ class TicketsController extends AppController
                         'prefix' => 'Admin',
                         '?' => ['code' => $code]
                     ]);
-                    return true; // Indicate redirect happened
-                }
-
-                // Redirect servicio_cliente users to PQRS
-                if ($userRole === 'servicio_cliente') {
-                    $this->redirect(['controller' => 'Pqrs', 'action' => 'index']);
                     return true; // Indicate redirect happened
                 }
 

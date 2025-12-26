@@ -73,7 +73,7 @@ class UserHelper extends Helper
             $attributes[] = sprintf('%s="%s"', h($key), h($value));
         }
 
-        return sprintf('<img src="%s" %s>', h($imageUrl), implode(' ', $attributes));
+        return sprintf('<img loading="lazy" src="%s" %s>', h($imageUrl), implode(' ', $attributes));
     }
 
     /**

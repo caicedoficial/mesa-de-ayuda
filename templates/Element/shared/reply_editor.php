@@ -14,6 +14,7 @@
 $entityType = $entityType ?? 'ticket';
 $statuses = $statuses ?? [];
 $currentUser = $currentUser ?? null;
+$isLocked = $isLocked ?? false; // Entity is locked if in final status
 
 // Determinar nombres de campos según entityType
 $bodyFieldName = in_array($entityType, ['ticket', 'compra']) ? 'comment_body' : 'body';
@@ -25,6 +26,13 @@ $requesterEmail = in_array($entityType, ['ticket', 'compra'])
     : $entity->requester_email;
 ?>
 
+<?php if ($isLocked): ?>
+<!-- Locked Entity Notice -->
+<div class="alert alert-danger m-3 fw-light" role="alert">
+    <i class="bi bi-lock-fill me-2"></i>
+    <strong>Solicitud cerrada:</strong> Esta solicitud está en estado final y no puede ser modificada.
+</div>
+<?php else: ?>
 <!-- Fixed Reply Editor -->
 <div class="reply-editor position-relative bg-white shadow-sm w-100 border" style="border-radius: 8px; min-height: 225px;">
     <?= $this->Form->create(null, [
@@ -73,15 +81,15 @@ $requesterEmail = in_array($entityType, ['ticket', 'compra'])
 
     <div class="position-relative px-3 d-flex flex-column bg-transparent" id="editor-container" style="min-height: 170px;">
         <!-- Email Recipients Section (only visible for public responses) -->
-        <div id="email-recipients-section" class="position-absolute w-100 end-0 top-0" style="display: none; z-index: 10;">
+        <div id="email-recipients-section" class="position-absolute w-100 end-0 top-0 rounded" style="display: none; z-index: 10;">
             <!-- Collapsed View (Summary) -->
             <div id="recipients-collapsed">
             </div>
 
             <!-- Expanded View (Full Inputs) -->
-            <div id="recipients-expanded" class="px-3" style="display: none; height: 178px;">
+            <div id="recipients-expanded" class="px-4 border-bottom" style="display: none; height: 170px; border-radius: 8px;">
                 <div class="d-flex justify-content-center align-items-center">
-                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" onclick="collapseRecipients()">
+                    <button type="button" class="btn btn-link text-decoration-none p-1 border my-2" onclick="collapseRecipients()">
                         <i class="bi bi-chevron-up"></i>
                     </button>
                 </div>
@@ -90,7 +98,7 @@ $requesterEmail = in_array($entityType, ['ticket', 'compra'])
                     <div class="d-flex gap-2 align-items-center">
                         <label for="email-to" class="form-label small m-0 fw-semibold" style="min-width: 40px;">Para:</label>
                         <div class="flex-fill">
-                            <div class="tag-input-container d-flex flex-wrap align-items-center gap-1 bg-white rounded px-2 py-1"
+                            <div class="tag-input-container d-flex flex-wrap align-items-center gap-1 bg-white border rounded px-2 py-1"
                                  id="email-to-container"
                                  style="min-height: 32px; cursor: text;">
                                 <!-- Los tags se renderizarán aquí -->
@@ -139,7 +147,7 @@ $requesterEmail = in_array($entityType, ['ticket', 'compra'])
         ]) ?>
 
         <div class="position-absolute bottom-0 start-0 w-100">
-            <div class="mx-4 mb-4 px-2 py-1 d-flex justify-content-between align-items-center" style="border-radius: 8px;">
+            <div class="mx-4 mb-4 px-2 py-1 d-flex justify-content-between align-items-start">
                 <div>
                     <label class="btn btn-secondary rounded shadow-sm" id="file-upload-btn">
                         <i class="bi bi-paperclip fw-bold"></i>
@@ -162,21 +170,21 @@ $requesterEmail = in_array($entityType, ['ticket', 'compra'])
                         <?php
                             $currentConfig = $statuses[$entity->status] ?? $statuses[array_key_first($statuses)] ?? [];
                         ?>
-                        <button class="btn btn-sm border-0 dropdown-toggle d-flex align-items-center gap-2 status-selector shadow-none"
+                        <button class="btn border dropdown-toggle bg-light d-flex align-items-center gap-2 status-selector shadow-none" style="border-radius: 8px;"
                                 type="button"
                                 id="status-dropdown"
                                 data-bs-toggle="dropdown"
                                 aria-expanded="false"
                                 data-current-status="<?= h($entity->status) ?>">
                             <i class="bi bi-circle-fill text-<?= h($currentConfig['color'] ?? 'secondary') ?>" id="status-icon"></i>
-                            <span id="status-label" class="text-dark fw-bold">Enviar como <?= h($currentConfig['label'] ?? 'Estado') ?></span>
+                            <span id="status-label" class="text-dark fw-bold small">Enviar como <?= h($currentConfig['label'] ?? 'Estado') ?></span>
                         </button>
                         <ul class="dropdown-menu rounded shadow-sm p-0 mb-2" aria-labelledby="status-dropdown">
                             <?php foreach ($statuses as $statusKey => $statusConfig): ?>
                             <li>
                                 <a class="dropdown-item fw-bold d-flex align-items-center py-1 gap-2" style="font-size: 14px;" href="#" onclick="setStatus('<?= h($statusKey) ?>'); return false;">
                                     <i class="bi bi-circle-fill text-<?= h($statusConfig['color']) ?>"></i>
-                                    <span>Enviar como <?= h($statusConfig['label']) ?></span>
+                                    <span><?= h($statusConfig['label']) ?></span>
                                 </a>
                             </li>
                             <?php endforeach; ?>
@@ -184,7 +192,7 @@ $requesterEmail = in_array($entityType, ['ticket', 'compra'])
                     </div>
 
                     <?= $this->Form->button('<i class="bi bi-send"></i>', [
-                        'class' => 'btn btn-success', 'style' => 'border-radius: 8px;',
+                        'class' => 'btn btn-success', 'style' => 'border-radius: 8px; font-size: 14px;',
                         'type' => 'submit', 'escapeTitle' => false
                     ]) ?>
                 </div>
@@ -194,6 +202,7 @@ $requesterEmail = in_array($entityType, ['ticket', 'compra'])
 
     <?= $this->Form->end() ?>
 </div>
+<?php endif; // End isLocked check ?>
 
 <script>
     // Initialize email recipients from entity data

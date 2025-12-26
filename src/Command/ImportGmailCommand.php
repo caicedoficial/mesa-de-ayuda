@@ -44,7 +44,6 @@ class ImportGmailCommand extends Command
         ]);
 
         $parser->addOption('query', [
-            'short' => 'q',
             'help' => 'Gmail search query',
             'default' => 'is:unread',
         ]);
@@ -140,20 +139,35 @@ class ImportGmailCommand extends Command
                     $ticket = $ticketService->createFromEmail($emailData);
 
                     if ($ticket) {
-                        $io->success("  Created ticket: #{$ticket->ticket_number}");
+                        try {
+                            $io->success("  Created ticket: #{$ticket->ticket_number}");
+                        } catch (\Exception $ioException) {
+                            // Ignore console write errors on Windows
+                        }
                         $created++;
 
                         // Mark as read
                         $gmailService->markAsRead($messageId);
                     } else {
-                        $io->error("  Failed to create ticket");
+                        try {
+                            $io->error("  Failed to create ticket");
+                        } catch (\Exception $ioException) {
+                            // Ignore console write errors on Windows
+                        }
                         $errors++;
                     }
                 } catch (\Exception $e) {
-                    $io->error("  Error: {$e->getMessage()}");
+                    try {
+                        $io->error("  Error: {$e->getMessage()}");
+                    } catch (\Exception $ioException) {
+                        // Ignore console write errors on Windows
+                    }
+
                     Log::error('Import Gmail error', [
                         'message_id' => $messageId,
                         'error' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
                         'trace' => $e->getTraceAsString(),
                     ]);
                     $errors++;
@@ -189,7 +203,7 @@ class ImportGmailCommand extends Command
     /**
      * Get Gmail configuration from system settings (with automatic decryption)
      *
-     * @return array
+     * @return array<string, string>
      */
     private function getGmailConfig(): array
     {
@@ -213,7 +227,7 @@ class ImportGmailCommand extends Command
     /**
      * Get all system settings (for passing to services, with automatic decryption)
      *
-     * @return array
+     * @return array<string, string>
      */
     private function getSystemSettings(): array
     {

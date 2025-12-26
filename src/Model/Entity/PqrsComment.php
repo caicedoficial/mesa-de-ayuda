@@ -36,6 +36,8 @@ class PqrsComment extends Entity
         'body' => true,
         'is_system_comment' => true,
         'sent_as_email' => true,
+        'email_to' => true,
+        'email_cc' => true,
         'created' => true,
         'modified' => true,
         'pqr' => true,

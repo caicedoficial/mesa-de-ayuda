@@ -1,12 +1,22 @@
 <!-- Left Sidebar - Ticket Info (with independent scroll) -->
 <div class="sidebar-left d-flex flex-column p-3">
-    <div class="sidebar-scroll flex-grow-1 overflow-auto p-3 shadow-sm bg-white" style="border-radius: 8px;">
+    <div class="sidebar-scroll flex-grow-1 overflow-auto shadow-sm bg-white" style="border-radius: 8px;">
+        <div class="p-3">
+        <?php
+        // Check if ticket is locked (in final status)
+        $isLocked = $isLocked ?? in_array($ticket->status, ['resuelto', 'convertido']);
+        ?>
         <section class="mb-3">
             <h3 class="fs-6 fw-semibold mb-3">Información del Ticket</h3>
 
             <div class="mb-3">
                 <label class="small text-muted fw-semibold mb-1">Estado:</label>
-                <div><?= $this->Status->badge($ticket->status) ?></div>
+                <div>
+                    <?= $this->Status->badge($ticket->status) ?>
+                    <?php if ($isLocked): ?>
+                        <i class="bi bi-lock-fill text-muted" title="Solicitud cerrada"></i>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <div class="mb-3">
@@ -20,6 +30,7 @@
                 ], [
                     'value' => $ticket->priority,
                     'class' => 'form-select form-select-sm',
+                    'disabled' => $isLocked,
                     'onchange' => 'this.form.submit()'
                 ]) ?>
                 <?= $this->Form->end() ?>
@@ -53,12 +64,12 @@
                 'value' => $ticket->assignee_id,
                 'class' => 'form-select form-select-sm',
                 'id' => 'agent-select',
-                'disabled' => $this->Ticket->isAssignmentDisabled($user),
+                'disabled' => $this->Ticket->isAssignmentDisabled($user) || $isLocked,
             ]) ?>
             <?= $this->Form->end() ?>
         </section>
 
-        <?php if (!empty($ticket->tags) || !empty($tags)): ?>
+        <?php if (!empty($ticket->tags) || (!$isLocked && !empty($tags))): ?>
             <section class="">
                 <h3 class="small text-muted fw-semibold mb-1">Etiquetas:</h3>
                 <?php if (!empty($ticket->tags)): ?>
@@ -66,15 +77,17 @@
                         <?php foreach ($ticket->tags as $tag): ?>
                             <span class="small px-2 py-1 text-white shadow-sm" style="background-color: <?= h($tag->color) ?>; border-radius: 8px;">
                                 <?= h($tag->name) ?>
-                                <?= $this->Form->postLink('x', ['action' => 'removeTag', $ticket->id, $tag->id], [
-                                    'confirm' => '¿Eliminar etiqueta?',
-                                    'class' => 'text-white bg-danger px-1 rounded-circle text-decoration-none ms-1 fw-bold'
-                                ]) ?>
+                                <?php if (!$isLocked): ?>
+                                    <?= $this->Form->postLink('<i class="bi bi-trash-fill"></i>', ['action' => 'removeTag', $ticket->id, $tag->id], [
+                                        'confirm' => '¿Eliminar etiqueta?',
+                                        'class' => 'text-white text-decoration-none ms-1 fw-bold', 'escape' => false
+                                    ]) ?>
+                                <?php endif; ?>
                             </span>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
-                <?php if (!empty($tags)): ?>
+                <?php if (!$isLocked && !empty($tags)): ?>
                     <?= $this->Form->create(null, ['url' => ['action' => 'addTag', $ticket->id]]) ?>
                     <?= $this->Form->control('tag_id', [
                         'options' => $tags,
@@ -87,5 +100,6 @@
                 <?php endif; ?>
             </section>
         <?php endif; ?>
+        </div>
     </div>
 </div>

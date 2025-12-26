@@ -4,11 +4,12 @@ declare(strict_types=1);
 namespace App\View\Cell;
 
 use Cake\I18n\DateTime;
-use Cake\ORM\TableRegistry;
+use Cake\ORM\Locator\LocatorAwareTrait;
 use Cake\View\Cell;
 
 class TicketsSidebarCell extends Cell
 {
+    use LocatorAwareTrait;
     /**
      * Display method
      *
@@ -19,8 +20,8 @@ class TicketsSidebarCell extends Cell
      */
     public function display(string $currentView = 'todos_sin_resolver', ?string $userRole = null, ?int $userId = null): void
     {
-        $ticketsTable = TableRegistry::getTableLocator()->get('Tickets');
-        $usersTable = TableRegistry::getTableLocator()->get('Users');
+        $ticketsTable = $this->fetchTable('Tickets');
+        $usersTable = $this->fetchTable('Users');
 
         // Get current user object for profile image
         $currentUser = null;
@@ -28,81 +29,49 @@ class TicketsSidebarCell extends Cell
             $currentUser = $usersTable->get($userId);
         }
 
-        // Build base query - filter by user role
+        // Optimize counts with a single query using GROUP BY
         $baseQuery = $ticketsTable->find();
         if ($userRole === 'requester' && $userId) {
             $baseQuery->where(['requester_id' => $userId]);
         }
 
-        // If user is compras role, filter to only their assigned tickets
-        if ($userRole === 'compras' && $userId) {
-            $baseQuery->where(['assignee_id' => $userId]);
-        }
+        // Get all status counts in a single query
+        $statusCounts = (clone $baseQuery)
+            ->select(['status', 'count' => $ticketsTable->find()->func()->count('*')])
+            ->group(['status'])
+            ->all()
+            ->combine('status', 'count')
+            ->toArray();
 
-        // If user is agent, exclude tickets assigned to compras users
-        if ($userRole === 'agent') {
-            $comprasUserIds = $usersTable
-                ->find()
-                ->select(['id'])
-                ->where(['role' => 'compras'])
-                ->all()
-                ->extract('id')
-                ->toArray();
-
-            if (!empty($comprasUserIds)) {
-                $baseQuery->where([
-                    'OR' => [
-                        'Tickets.assignee_id IS' => null,
-                        'Tickets.assignee_id NOT IN' => $comprasUserIds
-                    ]
-                ]);
-            }
-        }
-
-        // Calculate counts for each view
-        // For agents: filter nuevos, abiertos, pendientes by assigned tickets only
-        // For admins: show all tickets
         $isAgent = $userRole === 'agent';
-        $isAdmin = $userRole === 'admin';
 
+        // For agents: count status-specific tickets that are assigned to them
+        $agentStatusCounts = [];
+        if ($isAgent && $userId) {
+            $agentStatusCounts = $ticketsTable->find()
+                ->select(['status', 'count' => $ticketsTable->find()->func()->count('*')])
+                ->where(['assignee_id' => $userId, 'status IN' => ['nuevo', 'abierto', 'pendiente']])
+                ->group(['status'])
+                ->all()
+                ->combine('status', 'count')
+                ->toArray();
+        }
+
+        // Calculate counts from grouped results
         $counts = [
             'sin_asignar' => (clone $baseQuery)
                 ->where(['assignee_id IS' => null, 'status !=' => 'resuelto'])
                 ->count(),
-            'todos_sin_resolver' => (clone $baseQuery)
-                ->where(['status !=' => 'resuelto'])
-                ->count(),
-            'pendientes' => (clone $baseQuery)
-                ->where([
-                    'status' => 'pendiente',
-                    // Agents see only their assigned tickets, admins see all
-                    ($isAgent && $userId) ? ['assignee_id' => $userId] : []
-                ])
-                ->count(),
-            'nuevos' => (clone $baseQuery)
-                ->where([
-                    'status' => 'nuevo',
-                    // Agents see only their assigned tickets, admins see all
-                    ($isAgent && $userId) ? ['assignee_id' => $userId] : []
-                ])
-                ->count(),
-            'abiertos' => (clone $baseQuery)
-                ->where([
-                    'status' => 'abierto',
-                    // Agents see only their assigned tickets, admins see all
-                    ($isAgent && $userId) ? ['assignee_id' => $userId] : []
-                ])
-                ->count(),
-            'resueltos' => (clone $baseQuery)
-                ->where(['status' => 'resuelto'])
-                ->count(),
-            'convertidos' => (clone $baseQuery)
-                ->where(['status' => 'convertido'])
-                ->count(),
+            'todos_sin_resolver' => ($statusCounts['nuevo'] ?? 0) + ($statusCounts['abierto'] ?? 0) + ($statusCounts['pendiente'] ?? 0),
+            'pendientes' => $isAgent ? ($agentStatusCounts['pendiente'] ?? 0) : ($statusCounts['pendiente'] ?? 0),
+            'nuevos' => $isAgent ? ($agentStatusCounts['nuevo'] ?? 0) : ($statusCounts['nuevo'] ?? 0),
+            'abiertos' => $isAgent ? ($agentStatusCounts['abierto'] ?? 0) : ($statusCounts['abierto'] ?? 0),
+            'resueltos' => $statusCounts['resuelto'] ?? 0,
+            'convertidos' => $statusCounts['convertido'] ?? 0,
         ];
 
-        // Add "mis_tickets" count for agents and compras
-        if (($userRole === 'agent' || $userRole === 'compras') && $userId) {
+        // Add "mis_tickets" count for agents
+        if ($isAgent && $userId) {
             $counts['mis_tickets'] = $ticketsTable->find()
                 ->where(['assignee_id' => $userId, 'status !=' => 'resuelto'])
                 ->count();

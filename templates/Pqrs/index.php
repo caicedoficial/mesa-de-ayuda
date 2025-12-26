@@ -23,7 +23,7 @@ $userId = $user ? $user->get('id') : null;
 
 <div class="py-4 px-5 w-100">
     <div class="d-flex gap-3 align-items-center mb-3">
-        <i class="bi bi-chat-square-text-fill" style="font-size: 2rem;"></i>
+        <i class="bi bi-chat-square-text" style="font-size: 25px;"></i>
         <h2 class="fw-normal fs-3">
             <?php
             $titles = [
@@ -41,7 +41,7 @@ $userId = $user ? $user->get('id') : null;
         </h2>
     </div>
 
-    <div class="d-flex">
+    <div class="d-flex align-items-center mb-3 gap-2">
         <!-- Search Bar -->
         <?= $this->element('shared/search_bar', [
             'searchValue' => $search ?? '',
@@ -63,7 +63,7 @@ $userId = $user ? $user->get('id') : null;
     </div>
 
     <?php if ($pqrs->count() > 0): ?>
-        <div class="table-responsive scroll" style="max-height: 350px; overflow-y: auto;">
+        <div class="table-responsive table-scroll">
             <table class="table table-hover mb-0">
                 <thead class="bg-white" style="position: sticky; top: 0; z-index: 5;">
                     <tr>
@@ -75,6 +75,11 @@ $userId = $user ? $user->get('id') : null;
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Asunto</th>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Solicitante</th>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Asignado a</th>
+                        <?php if ($view === 'resueltas'): ?>
+                            <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">
+                                <?= $this->Paginator->sort('resolved_at', 'Resuelto') ?>
+                            </th>
+                        <?php endif; ?>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">
                             <?= $this->Paginator->sort('created', 'Solicitado') ?>
                         </th>
@@ -105,15 +110,22 @@ $userId = $user ? $user->get('id') : null;
                                 <strong class=" " style="font-size: 14px;"><?= h($item->requester_email) ?></strong>
                             </td>
                             <td class="py-1 align-middle" style="max-width: 150px;">
+                                <?php $isLocked = in_array($item->status, ['resuelto', 'cerrado']); ?>
                                 <?= $this->Form->create(null, ['url' => ['action' => 'assign', $item->id], 'type' => 'post', 'class' => 'table-assign-form']) ?>
                                 <?= $this->Form->select('assignee_id', $users, [
                                     'value' => $item->assignee_id,
                                     'empty' => 'Sin asignar',
                                     'class' => 'select2 table-agent-select',
+                                    'disabled' => $isLocked,
                                     'data-pqrs-id' => $item->id
                                 ]) ?>
                                 <?= $this->Form->end() ?>
                             </td>
+                            <?php if ($view === 'resueltas'): ?>
+                                <td class="py-1 align-middle small lh-1" style="font-size: 14px;">
+                                    <?= $item->resolved_at ? $this->TimeHuman->short($item->resolved_at) : '-' ?>
+                                </td>
+                            <?php endif; ?>
                             <td class="py-1 align-middle small lh-1" style="font-size: 14px;">
                                 <?= $this->TimeHuman->short($item->created) ?><br>
                             </td>

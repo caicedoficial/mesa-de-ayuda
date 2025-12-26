@@ -55,9 +55,10 @@ class ResponseService
         $commentType = $data['comment_type'] ?? 'public';
         $newStatus = $data['status'] ?? null;
 
-        // Extract additional recipients (To and CC)
-        $emailTo = !empty($data['email_to']) ? json_decode($data['email_to'], true) : [];
-        $emailCc = !empty($data['email_cc']) ? json_decode($data['email_cc'], true) : [];
+        // Extract additional recipients (To and CC) from request data
+        // Frontend sends these as JSON strings, so we need to decode them
+        $emailTo = $this->decodeEmailRecipients($data['email_to'] ?? null);
+        $emailCc = $this->decodeEmailRecipients($data['email_cc'] ?? null);
 
         $hasComment = !empty(trim($commentBody));
 
@@ -96,7 +97,10 @@ class ResponseService
                     $commentBody,
                     $commentType,
                     false,
-                    false // Don't send notifications yet
+                    false, // Don't send notifications yet
+                    false, // isPqrs
+                    $emailTo, // email_to
+                    $emailCc  // email_cc
                 );
             } elseif ($type === 'compra') {
                 $comment = $this->comprasService->addComment(
@@ -105,7 +109,9 @@ class ResponseService
                     $commentBody,
                     $commentType,
                     false,
-                    false // Don't send notifications yet
+                    false, // Don't send notifications yet
+                    $emailTo, // email_to
+                    $emailCc  // email_cc
                 );
             } else {
                 $comment = $this->pqrsService->addComment(
@@ -114,7 +120,10 @@ class ResponseService
                     $commentBody,
                     $commentType,
                     false,
-                    false // Don't send notifications yet
+                    false, // Don't send notifications yet
+                    true,  // isPqrs
+                    $emailTo, // email_to
+                    $emailCc  // email_cc
                 );
             }
 
@@ -237,5 +246,33 @@ class ResponseService
                 'new_status' => $newStatus,
             ]);
         }
+    }
+
+    /**
+     * Decode email recipients from JSON string or array
+     *
+     * @param mixed $data Email recipients as JSON string or array
+     * @return array Decoded recipients array
+     */
+    private function decodeEmailRecipients($data): array
+    {
+        if (empty($data)) {
+            return [];
+        }
+
+        // Handle JSON string
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        // Handle array (already decoded)
+        if (is_array($data)) {
+            return $data;
+        }
+
+        return [];
     }
 }

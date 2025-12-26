@@ -64,7 +64,7 @@ $userId = $user ? $user->get('id') : null;
     </div>
 
     <?php if ($tickets->count() > 0): ?>
-        <div class="table-responsive table-scroll scroll">
+        <div class="table-responsive table-scroll">
             <table class="table table-hover mb-0">
                 <thead class="" style="position: sticky; top: 0; z-index: 10;">
                     <tr>
@@ -75,6 +75,11 @@ $userId = $user ? $user->get('id') : null;
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Asunto</th>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Solicitante</th>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Asignado a</th>
+                        <?php if ($view === 'resueltos'): ?>
+                            <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">
+                                <?= $this->Paginator->sort('resolved_at', 'Resuelto') ?>
+                            </th>
+                        <?php endif; ?>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">
                             <?= $this->Paginator->sort('created', 'Solicitado') ?>
                         </th>
@@ -109,16 +114,26 @@ $userId = $user ? $user->get('id') : null;
                             </td>
 
                             <td class="py-1 align-middle" style="max-width: 150px;">
+                                <?php
+                                $isLocked = in_array($ticket->status, ['resuelto', 'convertido']);
+                                $isDisabled = $this->Ticket->isAssignmentDisabled($user) || $isLocked;
+                                ?>
                                 <?= $this->Form->create(null, ['url' => ['action' => 'assign', $ticket->id], 'class' => 'table-assign-form']) ?>
                                 <?= $this->Form->select('agent_id', $agents, [
                                     'value' => $ticket->assignee_id,
                                     'empty' => 'Sin asignar',
                                     'class' => 'table-agent-select form-select form-select-sm',
-                                    'disabled' => $this->Ticket->isAssignmentDisabled($user),
+                                    'disabled' => $isDisabled,
                                     'data-ticket-id' => $ticket->id
                                 ]) ?>
                                 <?= $this->Form->end() ?>
                             </td>
+
+                            <?php if ($view === 'resueltos'): ?>
+                                <td class="py-1 align-middle lh-1" style="font-size: 14px;">
+                                    <?= $ticket->resolved_at ? $this->TimeHuman->short($ticket->resolved_at) : '-' ?>
+                                </td>
+                            <?php endif; ?>
 
                             <td class="py-1 align-middle lh-1 " style="font-size: 14px;">
                                 <?= $this->TimeHuman->short($ticket->created) ?>

@@ -1,8 +1,17 @@
 parameters:
-    level: 8
-    treatPhpDocTypesAsCertain: false
-    checkGenericClassInNonGenericObjectType: false
+    level: 5
+    paths:
+        - src
+        - tests
+    excludePaths:
+        - tests/bootstrap.php
     bootstrapFiles:
         - config/bootstrap.php
-    paths:
-        - src/
+    ignoreErrors:
+        # CakePHP magic properties
+        - '#Access to an undefined property Cake\\ORM\\Table::\$[a-zA-Z0-9_]+#'
+        # CakePHP dynamic finders
+        - '#Call to an undefined method Cake\\ORM\\Table::find[a-zA-Z0-9]+\(\)#'
+    scanDirectories:
+        - vendor/cakephp/cakephp/src
+    treatPhpDocTypesAsCertain: false

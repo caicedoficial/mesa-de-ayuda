@@ -155,4 +155,20 @@ trait ViewDataNormalizerTrait
             default => throw new \InvalidArgumentException("Invalid entity type: {$entityType}"),
         };
     }
+
+    /**
+     * Check if an entity is locked (in a final/closed status)
+     *
+     * Locked entities cannot be modified (no status changes, priority changes,
+     * reassignments, new comments, or file attachments allowed).
+     *
+     * @param string $entityType 'ticket', 'pqrs', or 'compra'
+     * @param object $entity Entity instance
+     * @return bool True if entity is locked
+     */
+    protected function isEntityLocked(string $entityType, $entity): bool
+    {
+        $finalStatuses = $this->getResolvedStatuses($entityType);
+        return in_array($entity->status, $finalStatuses, true);
+    }
 }

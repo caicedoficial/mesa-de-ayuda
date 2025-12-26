@@ -8,7 +8,8 @@
  * @var \App\Model\Entity\User|null $currentUser
  */
 ?>
-<div class="p-4 text-white overflow-auto scroll" style="background-color: #273244; min-width: 300px;">
+<div class="text-white overflow-auto sidebar-scroll" style="background-color: #273244; min-width: 300px; border-radius: 0 8px 8px 0;">
+    <div class="p-4">
     <?php if ($currentUser): ?>
         <div class="text-center mb-3 px-3">
             <?= $this->User->profileImageTag($currentUser, ['width' => '80', 'height' => '80', 'class' => 'rounded-circle object-fit-cover shadow']) ?>
@@ -19,7 +20,7 @@
     <?php endif; ?>
 
     <!-- Main Views -->
-    <h6 class="mb-2 fs-6">VISTAS</h6>
+    <h6 class="mb-2 fs-6">Vistas</h6>
     <ul class="list-group">
         <li class="list-group-item">
             <?= $this->Html->link(
@@ -47,7 +48,7 @@
     </ul>
 
     <!-- Status Views -->
-    <h6 class="mt-4 mb-2 fs-6">ESTADOS</h6>
+    <h6 class="mt-4 mb-2 fs-6">Estados</h6>
     <ul class="list-group">
         <li class="list-group-item">
             <?= $this->Html->link(
@@ -91,7 +92,7 @@
     </ul>
 
     <!-- Type Views -->
-    <h6 class="mt-4 mb-2 fs-6">TIPOS</h6>
+    <h6 class="mt-4 mb-2 fs-6">Tipos</h6>
     <ul class="list-group">
         <li class="list-group-item">
             <?= $this->Html->link(
@@ -125,4 +126,5 @@
             ) ?>
         </li>
     </ul>
+    </div>
 </div>

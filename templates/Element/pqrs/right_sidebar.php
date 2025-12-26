@@ -9,13 +9,14 @@
         <small class="text-muted"><?= h($pqrs->requester_email) ?></small>
     </div>
 
-    <div class="sidebar-scroll flex-grow-1 overflow-auto p-3 my-3">
+    <div class="sidebar-scroll flex-grow-1 overflow-auto my-3 bg-white shadow-sm" style="border-radius: 8px;">
+        <div class="p-3">
         <section class="mb-3">
-            <h3 class="fs-6 mb-3">Información del Solicitante</h3>
+            <h3 class="fs-6 mb-3">Información del solicitante</h3>
 
             <?php if ($pqrs->requester_phone): ?>
             <div class="mb-2">
-                <label class="small text-uppercase text-muted fw-semibold mb-1">Teléfono</label>
+                <label class="small text-muted fw-semibold mb-1">Teléfono</label>
                 <div class="small"><?= h($pqrs->requester_phone) ?></div>
             </div>
             <?php endif; ?>
@@ -55,7 +56,7 @@
         </section>
 
         <section class="mb-3">
-            <h3 class="fs-6 fw-semibold mb-3">Historial de Cambios</h3>
+            <h3 class="fs-6 fw-semibold mb-3">Historial de cambios</h3>
             <!-- PERFORMANCE FIX: Lazy load history on scroll -->
             <div id="history-container" data-entity-type="pqrs" data-entity-id="<?= $pqrs->id ?>" data-loaded="false">
                 <div id="history-loader" class="text-center py-3">
@@ -67,5 +68,6 @@
                 <div id="history-content" style="display: none;"></div>
             </div>
         </section>
+        </div>
     </div>
 </div>

@@ -56,11 +56,11 @@ $controller = $controllerMap[$entityType] ?? 'Tickets';
                 ?>
                 <?= $this->Html->link(
                     '<i class="bi ' . $icon . ' ' . $color . ' fs-5 me-1"></i> ' .
-                    '<span class="small text-secondary">' . h($displayName) . '</span> ' .
+                    '<span class="small text-truncate">' . h($displayName) . '</span> ' .
                     '<span class="badge bg-light text-dark border">' . $sizeKB . ' KB</span>',
                     ['controller' => $controller, 'action' => 'downloadAttachment', $attachment->id],
                     [
-                        'class' => 'd-flex align-items-center gap-1 px-3 py-2 border rounded text-decoration-none bg-white',
+                        'class' => 'attachment-link',
                         'escape' => false,
                         'title' => 'Descargar ' . h($displayName)
                     ]

@@ -30,9 +30,9 @@ class PqrsController extends AppController
     /**
      * beforeFilter callback
      *
-     * Allow public access to create action
+     * Allow public access to create action and restrict access by role
      *
-     * @param \Cake\Event\EventInterface $event Event
+     * @param \Cake\Event\EventInterface<\Cake\Controller\Controller> $event Event
      * @return \Cake\Http\Response|null|void
      */
     public function beforeFilter(EventInterface $event)
@@ -41,6 +41,25 @@ class PqrsController extends AppController
 
         // Allow public access to create action (form submission)
         $this->Authentication->addUnauthenticatedActions(['create', 'success']);
+
+        $user = $this->Authentication->getIdentity();
+
+        if ($user) {
+            $role = $user->get('role');
+
+            // Redirect compras users to their module
+            if ($role === 'compras') {
+                $this->Flash->error(__('No tienes permiso para acceder al módulo de PQRS.'));
+                return $this->redirect(['controller' => 'Compras', 'action' => 'index']);
+            }
+
+            // Redirect agent and requester users to Tickets module
+            // (servicio_cliente and admin should have access to PQRS)
+            if (in_array($role, ['agent', 'requester'])) {
+                $this->Flash->error(__('No tienes permiso para acceder al módulo de PQRS.'));
+                return $this->redirect(['controller' => 'Tickets', 'action' => 'index']);
+            }
+        }
     }
 
     /**

@@ -9,7 +9,8 @@
         <small class="text-muted"><?= h($ticket->requester->email) ?></small>
     </div>
 
-    <div class="sidebar-scroll flex-grow-1 overflow-auto p-3 my-3">
+    <div class="sidebar-scroll flex-grow-1 overflow-auto my-3 bg-white shadow-sm" style="border-radius: 8px;">
+        <div class="p-3">
         <section class="mb-3">
             <h3 class="fs-6 mb-3">Información del Usuario</h3>
 
@@ -50,13 +51,13 @@
 
         <?php if (in_array($currentUser->role, ['admin', 'agent']) && $ticket->status !== 'resuelto'): ?>
             <section class="mb-3">
-                <div class="card border-0">
+                <div class="card">
                     <div class="card-header bg-success bg-opacity-50 text-dark small fw-bold text-center">
                         <i class="bi bi-cart-fill"></i> Convertir a Compra
                     </div>
                     <div class="card-body p-3">
                         <p class="small text-muted mb-3 fw-light">
-                            Convierte este ticket en una orden de compra. El ticket será marcado como resuelto.
+                            Convierte este ticket en una orden de compra. El ticket será marcado como convertido.
                         </p>
                         <?= $this->Form->create(null, [
                             'url' => ['action' => 'convertToCompra', $ticket->id]
@@ -76,9 +77,9 @@
         <?php endif; ?>
 
         <section class="mb-3">
-            <h3 class="fs-6 fw-semibold mb-3">Historial de Cambios</h3>
+            <h3 class="fs-6 fw-semibold mb-3">Historial de cambios</h3>
             <!-- PERFORMANCE FIX: Lazy load history on scroll -->
-            <div id="history-container" data-ticket-id="<?= $ticket->id ?>" data-loaded="false">
+            <div id="history-container" data-entity-type="ticket" data-entity-id="<?= $ticket->id ?>" data-loaded="false">
                 <div id="history-loader" class="text-center py-3">
                     <div class="spinner-border spinner-border-sm text-primary" role="status">
                         <span class="visually-hidden">Cargando...</span>
@@ -88,5 +89,6 @@
                 <div id="history-content" style="display: none;"></div>
             </div>
         </section>
+        </div>
     </div>
 </div>

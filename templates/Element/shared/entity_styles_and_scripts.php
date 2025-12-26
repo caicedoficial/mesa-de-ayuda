@@ -46,28 +46,6 @@ $label = $entityLabels[$entityType];
         height: calc(100dvh - 55px);
     }
 
-    /* Custom scrollbars */
-    .sidebar-scroll::-webkit-scrollbar,
-    .comments-scroll::-webkit-scrollbar {
-        width: 4px;
-    }
-
-    .sidebar-scroll::-webkit-scrollbar-track,
-    .comments-scroll::-webkit-scrollbar-track {
-        background: #f1f1f1;
-    }
-
-    .sidebar-scroll::-webkit-scrollbar-thumb,
-    .comments-scroll::-webkit-scrollbar-thumb {
-        background: rgba(205, 107, 21, 0.5);
-        border-radius: 8px;
-    }
-
-    .sidebar-scroll::-webkit-scrollbar-thumb:hover,
-    .comments-scroll::-webkit-scrollbar-thumb:hover {
-        background: rgba(205, 107, 21, 1);
-    }
-
     /* Editor tabs active state */
     .editor-tab {
         background: #f8f9fa;
@@ -111,18 +89,18 @@ $label = $entityLabels[$entityType];
     .file-list {
         display: grid;
         gap: 12px;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr 1fr;
+        margin-top: 8px;
     }
 
     .file-item {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
         padding: 4px 6px;
         background: #f8f9fa;
         border: 1px solid #dee2e6;
         border-radius: 8px;
-        margin-bottom: 6px;
         transition: all 0.2s ease;
     }
 
@@ -134,7 +112,7 @@ $label = $entityLabels[$entityType];
     .file-item-icon {
         flex-shrink: 0;
         font-size: 20px;
-        width: 24px;
+        width: 20px;
         text-align: center;
     }
 
@@ -150,6 +128,7 @@ $label = $entityLabels[$entityType];
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        max-width: 75px;
     }
 
     .file-item-size {
@@ -163,10 +142,10 @@ $label = $entityLabels[$entityType];
         border: none;
         color: #dc3545;
         cursor: pointer;
-        padding: 4px 8px;
-        border-radius: 3px;
+        padding: 4px;
+        border-radius: 8px;
         transition: all 0.2s ease;
-        font-size: 18px;
+        font-size: 14px;
         line-height: 1;
     }
 
@@ -206,6 +185,7 @@ $label = $entityLabels[$entityType];
     #recipients-collapsed:hover {
         background-color: #f8f9fa;
     }
+
 
     /* Recipients expanded/collapsed animation */
     #recipients-expanded,

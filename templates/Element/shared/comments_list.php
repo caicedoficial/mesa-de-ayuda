@@ -181,6 +181,73 @@ if ($entityType === 'ticket' || $entityType === 'compra') {
                                 </div>
                             </div>
                             <small class="text-muted"><?= $this->TimeHuman->time($comment->created) ?></small>
+
+                            <?php
+                            // Show email recipients if available (for public comments with email_to/email_cc)
+                            if ($comment->comment_type === 'public'):
+                                $commentEmailTo = !empty($comment->email_to) ? json_decode($comment->email_to, true) : [];
+                                $commentEmailCc = !empty($comment->email_cc) ? json_decode($comment->email_cc, true) : [];
+
+                                if (!empty($commentEmailTo) || !empty($commentEmailCc)):
+                                    // Combine all recipients for collapsed view (names only)
+                                    $allCommentRecipients = array_merge($commentEmailTo, $commentEmailCc);
+                                    $commentNamesOnly = array_map(function($recipient) {
+                                        return h($recipient['name'] ?? $recipient['email']);
+                                    }, $allCommentRecipients);
+                                    $commentNamesString = implode(', ', $commentNamesOnly);
+
+                                    // Prepare detailed lists
+                                    $commentToListDetailed = array_map(function($recipient) {
+                                        $name = h($recipient['name'] ?? $recipient['email']);
+                                        $email = h($recipient['email']);
+                                        return $name !== $email ? "{$name} &lt;{$email}&gt;" : $email;
+                                    }, $commentEmailTo);
+
+                                    $commentCcListDetailed = array_map(function($recipient) {
+                                        $name = h($recipient['name'] ?? $recipient['email']);
+                                        $email = h($recipient['email']);
+                                        return $name !== $email ? "{$name} &lt;{$email}&gt;" : $email;
+                                    }, $commentEmailCc);
+
+                                    // Generate unique ID for this comment's recipients section
+                                    $commentRecipientsId = 'comment-recipients-' . $comment->id;
+                            ?>
+                                    <div class="small mt-1">
+                                        <!-- Collapsed View (Default) -->
+                                        <div id="<?= $commentRecipientsId ?>-collapsed" class="recipients-collapsed">
+                                            <div class="d-flex flex-column gap-0" style="font-size: 12px;">
+                                                <span class="">
+                                                    <strong>Para:</strong> <?= $commentNamesString ?>
+                                                </span>
+                                                <a href="#" class="text-nowrap" style="font-size: 12px;" onclick="toggleRecipients('<?= $commentRecipientsId ?>'); return false;">
+                                                    Mostrar más
+                                                </a>
+                                            </div>
+                                        </div>
+
+                                        <!-- Expanded View (Hidden by default) -->
+                                        <div id="<?= $commentRecipientsId ?>-expanded" class="recipients-expanded" style="display: none;">
+                                            <?php if (!empty($commentEmailTo)): ?>
+                                                <div class="mb-0" style="font-size: 12px;">
+                                                    <strong>Para:</strong> <?= implode(', ', $commentToListDetailed) ?>
+                                                </div>
+                                            <?php endif; ?>
+                                            <?php if (!empty($commentEmailCc)): ?>
+                                                <div class="mb-0" style="font-size: 12px;">
+                                                    <strong>CC:</strong> <?= implode(', ', $commentCcListDetailed) ?>
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="mb-0" style="font-size: 12px;">
+                                                <a href="#" class="text-nowrap" style="font-size: 12px;" onclick="toggleRecipients('<?= $commentRecipientsId ?>'); return false;">
+                                                    Mostrar menos
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                            <?php
+                                endif;
+                            endif;
+                            ?>
                         </div>
                     </div>
                     <div

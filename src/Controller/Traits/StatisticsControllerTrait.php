@@ -15,7 +15,7 @@ trait StatisticsControllerTrait
      * Unified statistics action for all modules
      *
      * @param string $entityType Entity type: 'ticket', 'pqrs', or 'compra'
-     * @param array $options Configuration options ['defaultRange' => '30days', etc.]
+     * @param array<string, mixed> $options Configuration options ['defaultRange' => '30days', etc.]
      * @return void Renders statistics view
      */
     protected function renderStatistics(string $entityType, array $options = []): void
@@ -63,7 +63,7 @@ trait StatisticsControllerTrait
      * Parse date range filters from request
      *
      * @param string $defaultRange Default range if not specified
-     * @return array Filters array
+     * @return array<string, string|null> Filters array
      */
     private function parseStatisticsFilters(string $defaultRange = '30days'): array
     {
@@ -81,11 +81,11 @@ trait StatisticsControllerTrait
     /**
      * Normalize statistics data for consistent view structure
      *
-     * @param array $stats Statistics data
-     * @param array $trends Trend data
+     * @param array<string, mixed> $stats Statistics data
+     * @param array<string, mixed> $trends Trend data
      * @param string $entityType Entity type
-     * @param array $filters Applied filters
-     * @return array Normalized view data
+     * @param array<string, string|null> $filters Applied filters
+     * @return array<string, mixed> Normalized view data
      */
     private function normalizeStatisticsData(array $stats, array $trends, string $entityType, array $filters): array
     {

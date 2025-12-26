@@ -1,12 +1,22 @@
 <!-- Left Sidebar - Compra Info (with independent scroll) -->
 <div class="sidebar-left d-flex flex-column p-3">
-    <div class="sidebar-scroll flex-grow-1 overflow-auto p-3 shadow-sm bg-white" style="border-radius: 8px;">
+    <div class="sidebar-scroll flex-grow-1 overflow-auto shadow-sm bg-white" style="border-radius: 8px;">
+        <div class="p-3">
+        <?php
+        // Check if compra is locked (in final status)
+        $isLocked = $isLocked ?? in_array($compra->status, ['completado', 'rechazado', 'convertido']);
+        ?>
         <section class="mb-3">
             <h3 class="fs-6 fw-semibold mb-3">Información de la Compra</h3>
 
             <div class="mb-3">
                 <label class="small text-muted fw-semibold mb-1">Estado:</label>
-                <div><?= $this->Compras->statusBadge($compra->status) ?></div>
+                <div>
+                    <?= $this->Compras->statusBadge($compra->status) ?>
+                    <?php if ($isLocked): ?>
+                        <i class="bi bi-lock-fill text-muted" title="Solicitud cerrada"></i>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <div class="mb-3">
@@ -20,6 +30,7 @@
                 ], [
                     'value' => $compra->priority,
                     'class' => 'form-select form-select-sm',
+                    'disabled' => $isLocked,
                     'onchange' => 'this.form.submit()'
                 ]) ?>
                 <?= $this->Form->end() ?>
@@ -39,9 +50,10 @@
                 'value' => $compra->assignee_id,
                 'class' => 'form-select form-select-sm',
                 'id' => 'agent-select',
-                'disabled' => $this->User->isAssignmentDisabled($user),
+                'disabled' => $this->User->isAssignmentDisabled($user) || $isLocked,
             ]) ?>
             <?= $this->Form->end() ?>
         </section>
+        </div>
     </div>
 </div>

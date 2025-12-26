@@ -108,6 +108,8 @@ trait TicketSystemTrait
      * @param bool $isSystem Is this a system-generated comment?
      * @param bool $sendNotifications Whether to send notifications
      * @param bool $isPqrs Whether this is for PQRS (true) or Ticket (false)
+     * @param array|null $emailTo Array of TO recipients [{'name': '...', 'email': '...'}]
+     * @param array|null $emailCc Array of CC recipients [{'name': '...', 'email': '...'}]
      * @return \Cake\Datasource\EntityInterface|null Created comment or null
      */
     public function addComment(
@@ -117,7 +119,9 @@ trait TicketSystemTrait
         string $type = 'public',
         bool $isSystem = false,
         bool $sendNotifications = false,
-        bool $isPqrs = false
+        bool $isPqrs = false,
+        ?array $emailTo = null,
+        ?array $emailCc = null
     ): ?\Cake\Datasource\EntityInterface {
         $commentsTableName = $isPqrs ? 'PqrsComments' : 'TicketComments';
         $commentsTable = $this->fetchTable($commentsTableName);
@@ -135,6 +139,16 @@ trait TicketSystemTrait
             'body' => $sanitizedBody,
             'is_system_comment' => $isSystem,
         ];
+
+        // Add email recipients if provided (only for public comments)
+        if ($type === 'public' && !$isSystem) {
+            if (is_array($emailTo) && count($emailTo) > 0) {
+                $data['email_to'] = json_encode($emailTo);
+            }
+            if (is_array($emailCc) && count($emailCc) > 0) {
+                $data['email_cc'] = json_encode($emailCc);
+            }
+        }
 
         if ($isPqrs) {
             $data['pqrs_id'] = $entityId;

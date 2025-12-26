@@ -29,6 +29,9 @@ class ComprasController extends AppController
 
     /**
      * beforeFilter callback - Restrict access to admin and compras roles only
+     *
+     * @param \Cake\Event\EventInterface<\Cake\Controller\Controller> $event Event
+     * @return \Cake\Http\Response|null|void
      */
     public function beforeFilter(EventInterface $event)
     {
@@ -38,8 +41,16 @@ class ComprasController extends AppController
         $allowedRoles = ['admin', 'compras'];
 
         if ($user && !in_array($user->get('role'), $allowedRoles)) {
+            $role = $user->get('role');
             $this->Flash->error(__('No tienes permiso para acceder al módulo de compras.'));
-            return $this->redirect(['controller' => 'Tickets', 'action' => 'index']);
+
+            // Redirect to appropriate module based on role
+            if ($role === 'servicio_cliente') {
+                return $this->redirect(['controller' => 'Pqrs', 'action' => 'index']);
+            } else {
+                // agent, requester, and others go to Tickets
+                return $this->redirect(['controller' => 'Tickets', 'action' => 'index']);
+            }
         }
     }
 

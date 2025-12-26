@@ -37,7 +37,7 @@
         </div>
     </nav>
 
-    <div class="overflow-auto scroll" style="max-height: calc(100vh - 55px);">
+    <div class="overflow-auto sidebar-scroll" style="max-height: calc(100vh - 55px);">
         <?= $this->Flash->render() ?>
         <!-- Loading Spinner -->
         <?= $this->element('loading_spinner') ?>

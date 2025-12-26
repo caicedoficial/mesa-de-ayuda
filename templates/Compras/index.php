@@ -21,7 +21,7 @@ $userId = $user ? $user->get('id') : null;
 
 <div class="py-4 px-5 w-100">
     <div class="d-flex gap-3 align-items-center mb-3">
-        <i class="bi bi-cart-fill m-0 p-0" style="font-size: 25px; color: #CD6A15;"></i>
+        <i class="bi bi-cart" style="font-size: 25px;"></i>
         <h2 class="fw-normal m-0 fs-3">
             <?php
             $titles = [
@@ -64,7 +64,7 @@ $userId = $user ? $user->get('id') : null;
     </div>
 
     <?php if ($compras->count() > 0): ?>
-        <div class="table-responsive table-scroll scroll">
+        <div class="table-responsive table-scroll">
             <table class="table table-hover mb-0">
                 <thead style="position: sticky; top: 0; z-index: 10;">
                     <tr>
@@ -76,6 +76,11 @@ $userId = $user ? $user->get('id') : null;
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Solicitante</th>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">Asignado a</th>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">SLA</th>
+                        <?php if ($view === 'completados'): ?>
+                            <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">
+                                <?= $this->Paginator->sort('resolved_at', 'Completado') ?>
+                            </th>
+                        <?php endif; ?>
                         <th class="w-fit fw-semibold align-middle" style="font-size: 14px;">
                             <?= $this->Paginator->sort('created', 'Solicitado') ?>
                         </th>
@@ -117,12 +122,16 @@ $userId = $user ? $user->get('id') : null;
                             </td>
 
                             <td class="py-1 align-middle" style="max-width: 150px;">
+                                <?php
+                                $isLocked = in_array($compra->status, ['completado', 'rechazado', 'convertido']);
+                                $isDisabled = !in_array($userRole, ['admin', 'compras']) || $isLocked;
+                                ?>
                                 <?= $this->Form->create(null, ['url' => ['action' => 'assign', $compra->id], 'class' => 'table-assign-form']) ?>
                                 <?= $this->Form->select('agent_id', $comprasUsers, [
                                     'value' => $compra->assignee_id,
                                     'empty' => 'Sin asignar',
                                     'class' => 'table-agent-select form-select form-select-sm',
-                                    'disabled' => !in_array($userRole, ['admin', 'compras']),
+                                    'disabled' => $isDisabled,
                                     'data-compra-id' => $compra->id
                                 ]) ?>
                                 <?= $this->Form->end() ?>
@@ -131,6 +140,12 @@ $userId = $user ? $user->get('id') : null;
                             <td class="py-0 align-middle text-center">
                                 <?= $this->Compras->slaIcon($compra) ?>
                             </td>
+
+                            <?php if ($view === 'completados'): ?>
+                                <td class="py-1 align-middle lh-1" style="font-size: 14px;">
+                                    <?= $compra->resolved_at ? $this->TimeHuman->short($compra->resolved_at) : '-' ?>
+                                </td>
+                            <?php endif; ?>
 
                             <td class="py-1 align-middle lh-1" style="font-size: 14px;">
                                 <?= $this->TimeHuman->short($compra->created) ?>

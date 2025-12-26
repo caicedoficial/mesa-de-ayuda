@@ -9,7 +9,8 @@
         <small class="text-muted"><?= h($compra->requester->email ?? 'N/A') ?></small>
     </div>
 
-    <div class="sidebar-scroll flex-grow-1 overflow-auto p-3 my-3">
+    <div class="sidebar-scroll flex-grow-1 overflow-auto my-3 bg-white shadow-sm" style="border-radius: 8px;">
+        <div class="p-3">
         <section class="mb-3">
             <h3 class="fs-6 mb-3">Información del Solicitante</h3>
 
@@ -35,13 +36,13 @@
 
         <?php if (isset($user) && in_array($user->role, ['admin', 'compras']) && !in_array($compra->status, ['completado', 'rechazado'])): ?>
             <section class="mb-3">
-                <div class="card border-0">
+                <div class="card">
                     <div class="card-header bg-primary bg-opacity-50 text-dark small fw-bold text-center">
                         <i class="bi bi-ticket-fill"></i> Convertir a Ticket
                     </div>
                     <div class="card-body p-3">
                         <p class="small text-muted mb-3 fw-light">
-                            Convierte esta compra en un ticket de soporte. La compra será marcada como completada.
+                            Convierte esta compra en un ticket de soporte. La compra será marcada como convertida.
                         </p>
                         <?= $this->Form->create(null, [
                             'url' => ['action' => 'convertToTicket', $compra->id]
@@ -61,7 +62,7 @@
         <?php endif; ?>
 
         <section class="mb-3">
-            <h3 class="fs-6 fw-semibold mb-3">Historial de Cambios</h3>
+            <h3 class="fs-6 fw-semibold mb-3">Historial de cambios</h3>
             <!-- PERFORMANCE FIX: Lazy load history on scroll -->
             <div id="history-container" data-entity-type="compra" data-entity-id="<?= $compra->id ?>" data-loaded="false">
                 <div id="history-loader" class="text-center py-3">
@@ -73,5 +74,6 @@
                 <div id="history-content" style="display: none;"></div>
             </div>
         </section>
+        </div>
     </div>
 </div>

@@ -47,11 +47,11 @@ $controller = $entityType === 'ticket' ? 'Tickets' : 'Pqrs';
 
 <?= $this->Html->link(
     '<i class="bi ' . $icon . ' ' . $color . ' fs-5 me-1"></i> ' .
-    '<span class="small">' . h($displayName) . '</span> ' .
+    '<span class="small text-truncate">' . h($displayName) . '</span> ' .
     '<span class="badge bg-light text-dark border">' . $sizeKB . ' KB</span>',
     ['controller' => $controller, 'action' => $downloadAction, $attachment->id],
     [
-        'class' => 'd-flex align-items-center gap-1 px-3 py-2 border rounded text-decoration-none bg-white hover-bg-light',
+        'class' => 'attachment-link',
         'escape' => false,
         'title' => 'Descargar ' . h($displayName)
     ]

@@ -26,6 +26,7 @@ use Cake\Controller\Controller;
  * will inherit them.
  *
  * @link https://book.cakephp.org/5/en/controllers.html#the-app-controller
+ * @property \Authentication\Controller\Component\AuthenticationComponent $Authentication
  */
 class AppController extends Controller
 {
@@ -56,7 +57,7 @@ class AppController extends Controller
     /**
      * Before filter callback
      *
-     * @param \Cake\Event\EventInterface $event Event.
+     * @param \Cake\Event\EventInterface<\Cake\Controller\Controller> $event Event.
      * @return \Cake\Http\Response|null|void
      */
     public function beforeFilter(\Cake\Event\EventInterface $event)
