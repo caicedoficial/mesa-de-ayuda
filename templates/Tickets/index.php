@@ -34,6 +34,7 @@ $userId = $user ? $user->get('id') : null;
                 'abiertos' => 'Tickets abiertos',
                 'pendientes' => 'Tickets pendientes',
                 'resueltos' => 'Tickets resueltos',
+                'convertidos' => 'Tickets convertidos',
                 'mis_tickets' => 'Mis tickets',
             ];
             echo $titles[$view] ?? 'Tickets';

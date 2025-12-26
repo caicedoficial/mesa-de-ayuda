@@ -71,11 +71,11 @@ trait SettingsEncryptionTrait
     /**
      * Decrypt a setting value
      *
-     * @param string $value Encrypted value
+     * @param string|null $value Encrypted value
      * @param string $key Setting key (for context)
      * @return string Plain text value
      */
-    protected function decryptSetting(string $value, string $key): string
+    protected function decryptSetting(?string $value, string $key): string
     {
         if (empty($value)) {
             return '';
@@ -98,7 +98,13 @@ trait SettingsEncryptionTrait
 
         try {
             $decrypted = Security::decrypt($encryptedValue, $this->getEncryptionKey());
-            return $decrypted !== false ? $decrypted : '';
+
+            // Security::decrypt() can return false, null, or string
+            if ($decrypted === false || $decrypted === null) {
+                return '';
+            }
+
+            return (string)$decrypted;
         } catch (\Exception $e) {
             \Cake\Log\Log::error('Failed to decrypt setting: ' . $key, [
                 'error' => $e->getMessage()

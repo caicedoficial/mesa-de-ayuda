@@ -366,4 +366,147 @@ class TicketService
         assert($result instanceof \App\Model\Entity\Attachment || $result === null);
         return $result;
     }
+
+    /**
+     * Create ticket from compra
+     *
+     * Workflow: Compra → Convert → Ticket
+     *
+     * @param \App\Model\Entity\Compra $compra Source compra
+     * @param array $data Additional data (assignee_id, user_id)
+     * @return \App\Model\Entity\Ticket|null Created ticket or null on failure
+     */
+    public function createFromCompra(\App\Model\Entity\Compra $compra, array $data = []): ?\App\Model\Entity\Ticket
+    {
+        $ticketsTable = $this->fetchTable('Tickets');
+
+        try {
+            // Generate ticket number
+            $year = date('Y');
+            $prefix = "TKT-{$year}-";
+            $lastTicket = $ticketsTable->find()
+                ->select(['ticket_number'])
+                ->where(['ticket_number LIKE' => $prefix . '%'])
+                ->order(['ticket_number' => 'DESC'])
+                ->first();
+
+            if ($lastTicket) {
+                $lastNumber = (int)substr($lastTicket->ticket_number, -5);
+                $newNumber = $lastNumber + 1;
+            } else {
+                $newNumber = 1;
+            }
+            $ticketNumber = $prefix . str_pad((string)$newNumber, 5, '0', STR_PAD_LEFT);
+
+            // Create ticket from compra data
+            $ticket = $ticketsTable->newEntity([
+                'ticket_number' => $ticketNumber,
+                'subject' => "{$compra->subject}",
+                'description' => $compra->description,
+                'status' => 'nuevo',
+                'priority' => $compra->priority,
+                'requester_id' => $compra->requester_id,
+                'assignee_id' => $data['assignee_id'] ?? null,
+                'channel' => $compra->channel ?? 'email',
+                'email_to' => $compra->email_to,
+                'email_cc' => $compra->email_cc,
+                'source_email' => $compra->requester->email ?? null,
+            ]);
+
+            if ($ticketsTable->save($ticket)) {
+                // Log creation in ticket history
+                $this->logHistory(
+                    'TicketHistory',
+                    'ticket_id',
+                    $ticket->id,
+                    'created_from_compra',
+                    null,
+                    $compra->compra_number,
+                    $data['user_id'] ?? null,
+                    "Creado desde Compra #{$compra->compra_number}"
+                );
+
+                return $ticket;
+            }
+
+            Log::error('Error al guardar ticket desde compra', ['compra_id' => $compra->id]);
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Error en createFromCompra: ' . $e->getMessage(), [
+                'compra_id' => $compra->id,
+                'exception' => $e,
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Copy compra data (comments and attachments) to ticket
+     *
+     * @param \App\Model\Entity\Compra $compra Source compra
+     * @param \App\Model\Entity\Ticket $ticket Destination ticket
+     * @return bool Success status
+     */
+    public function copyCompraData(\App\Model\Entity\Compra $compra, \App\Model\Entity\Ticket $ticket): bool
+    {
+        try {
+            $comprasTable = $this->fetchTable('Compras');
+            $ticketCommentsTable = $this->fetchTable('TicketComments');
+            $attachmentsTable = $this->fetchTable('Attachments');
+
+            $compra = $comprasTable->get($compra->id, [
+                'contain' => ['ComprasComments', 'ComprasAttachments']
+            ]);
+
+            // Copy comments
+            foreach ($compra->compras_comments as $comment) {
+                $newComment = $ticketCommentsTable->newEntity([
+                    'ticket_id' => $ticket->id,
+                    'user_id' => $comment->user_id,
+                    'comment_type' => $comment->comment_type,
+                    'body' => $comment->body,
+                    'is_system_comment' => $comment->is_system_comment,
+                    'sent_as_email' => false,
+                ]);
+                $ticketCommentsTable->save($newComment);
+            }
+
+            // Copy attachments
+            foreach ($compra->compras_attachments as $attachment) {
+                $oldPath = WWW_ROOT . $attachment->file_path;
+                $newDir = 'uploads' . DS . 'attachments' . DS . $ticket->ticket_number . DS;
+                $newPath = WWW_ROOT . $newDir;
+
+                if (!file_exists($newPath)) {
+                    mkdir($newPath, 0755, true);
+                }
+
+                $newFilePath = $newPath . $attachment->filename;
+                if (file_exists($oldPath)) {
+                    copy($oldPath, $newFilePath);
+                }
+
+                $newAttachment = $attachmentsTable->newEntity([
+                    'ticket_id' => $ticket->id,
+                    'comment_id' => null,
+                    'filename' => $attachment->filename,
+                    'original_filename' => $attachment->original_filename,
+                    'file_path' => $newDir . $attachment->filename,
+                    'mime_type' => $attachment->mime_type,
+                    'file_size' => $attachment->file_size,
+                    'is_inline' => $attachment->is_inline,
+                    'content_id' => $attachment->content_id,
+                    'uploaded_by' => $attachment->uploaded_by_user_id,
+                ]);
+                $attachmentsTable->save($newAttachment);
+            }
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('Error copiando datos de compra a ticket: ' . $e->getMessage());
+            return false;
+        }
+    }
 }

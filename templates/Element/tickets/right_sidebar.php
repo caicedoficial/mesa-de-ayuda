@@ -52,31 +52,21 @@
             <section class="mb-3">
                 <div class="card border-0">
                     <div class="card-header bg-success bg-opacity-50 text-dark small fw-bold text-center">
-                        <i class="bi bi-cart-fill"></i>
+                        <i class="bi bi-cart-fill"></i> Convertir a Compra
                     </div>
                     <div class="card-body p-3">
-                        <p class="small text-muted mb-2 fw-light">
-                            Convierte este ticket en una orden de compra.
+                        <p class="small text-muted mb-3 fw-light">
+                            Convierte este ticket en una orden de compra. El ticket será marcado como resuelto.
                         </p>
                         <?= $this->Form->create(null, [
                             'url' => ['action' => 'convertToCompra', $ticket->id]
                         ]) ?>
-                            <div class="mb-2">
-                                <label class="form-label small m-0">Asignar a:</label>
-                                <?= $this->Form->control('assignee_id', [
-                                    'type' => 'select',
-                                    'options' => $comprasUsers ?? [],
-                                    'class' => 'form-select form-select-sm',
-                                    'label' => false,
-                                    'empty' => '-- Seleccionar usuario de compras --'
-                                ]) ?>
-                            </div>
                             <?= $this->Form->button(
-                                '<i class="bi bi-arrow-right-circle"></i>',
+                                '<i class="bi bi-arrow-right-circle me-1"></i> Convertir',
                                 [
                                     'class' => 'btn btn-success btn-sm w-100 shadow-sm',
                                     'escapeTitle' => false,
-                                    'onclick' => 'return confirm("¿Estás seguro de convertir este ticket a una orden de compra? El ticket será cerrado.")'
+                                    'onclick' => 'return confirm("¿Estás seguro de convertir este ticket a una orden de compra? El ticket será marcado como resuelto.")'
                                 ]
                             ) ?>
                         <?= $this->Form->end() ?>

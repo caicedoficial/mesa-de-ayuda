@@ -21,6 +21,7 @@ use Cake\ORM\Entity;
  * @property string|null $requester_id_number
  * @property string|null $requester_address
  * @property string|null $requester_city
+ * @property string $channel
  * @property int|null $assignee_id
  * @property string|null $source_url
  * @property string|null $ip_address
@@ -56,6 +57,7 @@ class Pqr extends Entity
         'requester_id_number' => true,
         'requester_address' => true,
         'requester_city' => true,
+        'channel' => true,
         'assignee_id' => true,
         'source_url' => true,
         'ip_address' => true,

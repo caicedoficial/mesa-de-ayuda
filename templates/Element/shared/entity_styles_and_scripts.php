@@ -1,8 +1,35 @@
+<?php
+/**
+ * Shared Element: Entity Styles and Scripts
+ *
+ * Unified CSS and JavaScript for Tickets, PQRS, and Compras view pages.
+ * Eliminates ~1400 lines of duplicated code across 3 separate files.
+ *
+ * @var string $entityType 'ticket', 'pqrs', or 'compra'
+ * @var object $entity Current entity (for current status in spinner messages)
+ * @var array $statuses Status configuration from controller
+ */
+
+$entityType = $entityType ?? 'ticket';
+$containerClass = $entityMetadata['containerClass'] ?? "{$entityType}-view-container";
+
+// Entity-specific labels for messages
+$entityLabels = [
+    'ticket' => ['singular' => 'ticket', 'plural' => 'tickets'],
+    'pqrs' => ['singular' => 'PQRS', 'plural' => 'PQRS'],
+    'compra' => ['singular' => 'compra', 'plural' => 'compras'],
+];
+$label = $entityLabels[$entityType];
+?>
+
 <style>
     /* Only custom CSS that Bootstrap doesn't provide */
 
     /* Main Container - Fixed height viewport */
-    .ticket-view-container {
+    .<?= $containerClass ?>,
+    .ticket-view-container,
+    .pqrs-view-container,
+    .compras-view-container {
         display: grid;
         grid-template-columns: 288px 1fr 288px;
         gap: 0;
@@ -10,7 +37,6 @@
         max-height: calc(100vh - 55px);
         overflow: hidden;
         width: 100%;
-
     }
 
     /* Fixed heights for columns */
@@ -212,6 +238,9 @@
 </style>
 
 <script>
+    /**
+     * Set comment type (public response or internal note)
+     */
     function setCommentType(type) {
         document.getElementById('comment-type').value = type;
 
@@ -228,9 +257,7 @@
 
             // Update dropdown label and icon
             if (typeLabel) typeLabel.textContent = 'Nota interna';
-            if (typeIcon) {
-                typeIcon.className = 'bi bi-pencil-square';
-            }
+            if (typeIcon) typeIcon.className = 'bi bi-pencil-square';
 
             // Hide recipients text
             if (recipientsText) recipientsText.style.display = 'none';
@@ -241,9 +268,7 @@
 
             // Update dropdown label and icon
             if (typeLabel) typeLabel.textContent = 'Respuesta pública';
-            if (typeIcon) {
-                typeIcon.className = 'bi bi-reply-fill';
-            }
+            if (typeIcon) typeIcon.className = 'bi bi-reply-fill';
 
             // Show recipients text
             if (recipientsText) recipientsText.style.display = 'block';
@@ -268,22 +293,16 @@
     }
 
     /**
-     * Set ticket status in dropdown
+     * Set entity status in dropdown
      * Updates both the hidden input and the visual dropdown
      */
     function setStatus(status) {
         // Update hidden input
         document.getElementById('status-hidden').value = status;
 
-        // Status configuration map
-        const statusConfig = {
-            'nuevo': {icon: 'bi-circle-fill', color: 'warning', label: 'Nuevo'},
-            'abierto': {icon: 'bi-circle-fill', color: 'danger', label: 'Abierto'},
-            'pendiente': {icon: 'bi-cirle-fill', color: 'primary', label: 'Pendiente'},
-            'resuelto': {icon: 'bi-circle-fill', color: 'success', label: 'Resuelto'}
-        };
-
-        const config = statusConfig[status] || statusConfig['nuevo'];
+        // ✨ Get status configuration from PHP (injected by controller)
+        const statusConfig = <?= json_encode($statuses) ?>;
+        const config = statusConfig[status] || Object.values(statusConfig)[0];
 
         // Update dropdown button appearance
         const statusIcon = document.getElementById('status-icon');
@@ -291,7 +310,7 @@
         const statusDropdown = document.getElementById('status-dropdown');
 
         if (statusIcon) {
-            statusIcon.className = `bi bi-circle-fill text-${config.color}`;
+            statusIcon.className = `bi ${config.icon} text-${config.color}`;
         }
 
         if (statusLabel) {
@@ -410,39 +429,33 @@
         input.files = dataTransfer.files;
     }
 
-    // Spinner: Mostrar al enviar comentario/respuesta o cambiar estado
+    // Spinner: Show when submitting comment/response or changing status
     document.getElementById('reply-form').addEventListener('submit', function (e) {
         const commentBody = document.getElementById('comment-textarea').value.trim();
         const commentType = document.getElementById('comment-type').value;
-        const statusSelect = document.querySelector('select[name="status"]');
-        const currentStatus = '<?= $ticket->status ?>';
-        const newStatus = statusSelect ? statusSelect.value : currentStatus;
+        const statusHidden = document.getElementById('status-hidden');
+        const currentStatus = <?= json_encode($entity->{$entityMetadata['statusField']} ?? 'nuevo') ?>;
+        const newStatus = statusHidden ? statusHidden.value : currentStatus;
         const hasStatusChange = newStatus !== currentStatus;
 
-        // Determinar el mensaje apropiado
+        // Determine appropriate message
         let message = '';
 
         if (commentBody || selectedFiles.length > 0) {
-            // Hay comentario o archivos
+            // Has comment or files
             message = commentType === 'public' ? 'Enviando respuesta...' : 'Guardando nota interna...';
         } else if (hasStatusChange) {
-            // Solo cambio de estado (sin comentario ni archivos)
-            const statusLabels = {
-                'nuevo': 'Nuevo',
-                'abierto': 'Abierto',
-                'pendiente': 'Pendiente',
-                'resuelto': 'Resuelto'
-            };
+            // Only status change (no comment or files)
             message = `Cambiando estado...`;
         }
 
-        // Mostrar spinner si hay algo que procesar
+        // Show spinner if there's something to process
         if (message) {
             LoadingSpinner.show(message);
         }
     });
 
-    // Spinner: Mostrar al asignar ticket con Select2
+    // Spinner: Show when assigning entity with Select2
     setTimeout(function() {
         const $agentSelect = $('#agent-select');
         if ($agentSelect.length) {
@@ -452,21 +465,21 @@
 
                 let agentName = '';
 
-                // Si es evento 'clear' o valor vacío
+                // If 'clear' event or empty value
                 if (e.type === 'select2:clear' || this.value === '') {
-                    LoadingSpinner.show('Desasignando ticket...');
+                    LoadingSpinner.show('Desasignando <?= $label['singular'] ?>...');
                 } else {
-                    // Obtener el texto de la opción seleccionada
+                    // Get selected option text
                     const selectedOption = this.options[this.selectedIndex];
                     agentName = selectedOption ? selectedOption.text : '';
                     LoadingSpinner.show(`Asignando a ${agentName}...`);
                 }
 
-                // Enviar el formulario
+                // Submit form
                 form.submit();
             });
         }
-    }, 500); // Esperar a que Select2 se inicialice
+    }, 500); // Wait for Select2 to initialize
 
     // Toggle recipients view (collapsed/expanded)
     function toggleRecipients(recipientsId) {
@@ -486,10 +499,10 @@
 
     // Initialize email recipients section visibility on page load
     document.addEventListener('DOMContentLoaded', function() {
-        const commentType = document.getElementById('comment-type').value;
+        const commentType = document.getElementById('comment-type');
         const recipientsSection = document.getElementById('email-recipients-section');
-        if (recipientsSection) {
-            recipientsSection.style.display = (commentType === 'public') ? 'block' : 'none';
+        if (commentType && recipientsSection) {
+            recipientsSection.style.display = (commentType.value === 'public') ? 'block' : 'none';
         }
     });
 </script>
@@ -497,5 +510,5 @@
 <!-- Email Recipients Manager -->
 <script src="<?= $this->Url->build('/js/email-recipients.js') ?>"></script>
 
-<!-- Lazy Loading for Ticket History (PERFORMANCE FIX) -->
-<script src="<?= $this->Url->build('/js/ticket-history-lazy.js') ?>"></script>
+<!-- Lazy Loading for Entity History (PERFORMANCE FIX) -->
+<script src="<?= $this->Url->build('/js/entity-history-lazy.js') ?>"></script>

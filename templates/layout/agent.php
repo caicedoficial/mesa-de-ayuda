@@ -17,7 +17,7 @@
             </div>
             <?= $this->element('ia') ?>
             <div class="nav-menu d-flex align-items-center gap-3 py-3">
-                <?= $this->Html->link('<i class="bi bi-bar-chart"></i> Estadísticas', ['prefix' => false, 'controller' => 'Tickets', 'action' => 'dashboard'], ['escape' => false]) ?>
+                <?= $this->Html->link('<i class="bi bi-bar-chart"></i> Estadísticas', ['prefix' => false, 'controller' => 'Tickets', 'action' => 'statistics'], ['escape' => false]) ?>
                 <?= $this->Html->link('<i class="bi bi-ticket"></i> Tickets', ['prefix' => false, 'controller' => 'Tickets', 'action' => 'index'], ['escape' => false]) ?>
                 <?= $this->Html->link('<i class="bi bi-person"></i> Mi Perfil', ['prefix' => 'Admin', 'controller' => 'Settings', 'action' => 'editUser', $currentUser->id], ['escape' => false]) ?>
             </div>

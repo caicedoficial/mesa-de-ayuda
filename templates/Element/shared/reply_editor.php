@@ -2,10 +2,10 @@
 /**
  * Shared Element: Reply Editor
  *
- * Editor de respuestas reutilizable para Tickets y PQRS
+ * Editor de respuestas reutilizable para Tickets, PQRS y Compras
  *
- * @var object $entity Entidad (Ticket o Pqrs)
- * @var string $entityType 'ticket' o 'pqrs'
+ * @var object $entity Entidad (Ticket, Pqrs o Compra)
+ * @var string $entityType 'ticket', 'pqrs' o 'compra'
  * @var array $statuses Estados disponibles con config (icon, color, label)
  * @var object $currentUser Usuario actual
  */
@@ -16,11 +16,11 @@ $statuses = $statuses ?? [];
 $currentUser = $currentUser ?? null;
 
 // Determinar nombres de campos según entityType
-$bodyFieldName = $entityType === 'ticket' ? 'comment_body' : 'body';
-$requesterName = $entityType === 'ticket'
+$bodyFieldName = in_array($entityType, ['ticket', 'compra']) ? 'comment_body' : 'body';
+$requesterName = in_array($entityType, ['ticket', 'compra'])
     ? ($entity->requester->name ?? $entity->requester->email)
     : ($entity->requester_name ?? $entity->requester_email);
-$requesterEmail = $entityType === 'ticket'
+$requesterEmail = in_array($entityType, ['ticket', 'compra'])
     ? $entity->requester->email
     : $entity->requester_email;
 ?>

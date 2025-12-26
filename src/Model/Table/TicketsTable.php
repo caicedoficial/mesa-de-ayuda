@@ -244,6 +244,9 @@ class TicketsTable extends Table
                 case 'resueltos':
                     $query->where(['Tickets.status' => 'resuelto']);
                     break;
+                case 'convertidos':
+                    $query->where(['Tickets.status' => 'convertido']);
+                    break;
                 case 'recientes':
                     $query->where(['Tickets.created >=' => date('Y-m-d', strtotime('-7 days'))]);
                     break;

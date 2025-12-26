@@ -34,6 +34,7 @@ $userId = $user ? $user->get('id') : null;
                 'en_proceso' => 'En proceso',
                 'completados' => 'Completadas',
                 'rechazados' => 'Rechazadas',
+                'convertidos' => 'Convertidas',
                 'vencidos_sla' => 'SLA Vencidos',
             ];
             echo $titles[$view] ?? 'Compras';

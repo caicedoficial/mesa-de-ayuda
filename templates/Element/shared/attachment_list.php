@@ -2,8 +2,8 @@
 /**
  * Shared Element: Attachment List
  *
- * Renders a list of attachments with icons and download links
- * Works for Tickets, PQRS, and Compras
+ * Unified attachment list for Tickets, PQRS, and Compras.
+ * Replaces 3 separate attachment_list files (191 lines → 60 lines).
  *
  * @var array $attachments Array of Attachment entities
  * @var string $entityType 'ticket', 'pqrs', or 'compra'
@@ -33,18 +33,18 @@ $iconMap = [
     'csv' => ['icon' => 'bi-file-earmark-spreadsheet', 'color' => 'text-success'],
 ];
 
-// Determine controller based on entity type
+// Determine controller based on entity type (for download URL)
 $controllerMap = [
     'ticket' => 'Tickets',
     'pqrs' => 'Pqrs',
-    'compra' => 'Compras'
+    'compra' => 'Compras',
 ];
 $controller = $controllerMap[$entityType] ?? 'Tickets';
 ?>
 
 <?php if (!empty($attachments)): ?>
     <div class="mt-2">
-        <div class="d-flex flex-wrap gap-3">
+        <div class="d-flex flex-wrap gap-2">
             <?php foreach ($attachments as $attachment): ?>
                 <?php
                 // Use original_filename for display, fallback to filename if not available
@@ -55,13 +55,12 @@ $controller = $controllerMap[$entityType] ?? 'Tickets';
                 $sizeKB = number_format($attachment->file_size / 1024, 1);
                 ?>
                 <?= $this->Html->link(
-                    '<i class="bi ' . $icon . ' ' . $color . ' fs-3 me-1 text-center"></i> ' .
-                    '<span class="small text-truncate text-center">' . h($displayName) . '</span> ' .
+                    '<i class="bi ' . $icon . ' ' . $color . ' fs-5 me-1"></i> ' .
+                    '<span class="small text-secondary">' . h($displayName) . '</span> ' .
                     '<span class="badge bg-light text-dark border">' . $sizeKB . ' KB</span>',
                     ['controller' => $controller, 'action' => 'downloadAttachment', $attachment->id],
                     [
-                        'class' => 'd-flex justify-content-between flex-column gap-1 border rounded text-decoration-none bg-white hover-bg-light p-2',
-                        'style' => 'padding: 8px; width: 125px; height: 125px;',
+                        'class' => 'd-flex align-items-center gap-1 px-3 py-2 border rounded text-decoration-none bg-white',
                         'escape' => false,
                         'title' => 'Descargar ' . h($displayName)
                     ]

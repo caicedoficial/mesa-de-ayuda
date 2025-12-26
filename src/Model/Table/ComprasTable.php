@@ -96,6 +96,12 @@ class ComprasTable extends Table
             ->allowEmptyString('assignee_id');
 
         $validator
+            ->scalar('channel')
+            ->maxLength('channel', 20)
+            ->notEmptyString('channel')
+            ->inList('channel', ['email', 'whatsapp']);
+
+        $validator
             ->dateTime('sla_due_date')
             ->allowEmptyDateTime('sla_due_date');
 
@@ -193,10 +199,13 @@ class ComprasTable extends Table
                 case 'rechazados':
                     $query->where(['Compras.status' => 'rechazado']);
                     break;
+                case 'convertidos':
+                    $query->where(['Compras.status' => 'convertido']);
+                    break;
                 case 'vencidos_sla':
                     $query->where([
                         'Compras.sla_due_date <' => new \DateTime(),
-                        'Compras.status NOT IN' => ['completado', 'rechazado']
+                        'Compras.status NOT IN' => ['completado', 'rechazado', 'convertido']
                     ]);
                     break;
             }

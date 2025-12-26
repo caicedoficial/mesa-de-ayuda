@@ -151,6 +151,12 @@ class PqrsTable extends Table
             ->allowEmptyString('requester_city');
 
         $validator
+            ->scalar('channel')
+            ->maxLength('channel', 20)
+            ->notEmptyString('channel')
+            ->inList('channel', ['web', 'whatsapp']);
+
+        $validator
             ->integer('assignee_id')
             ->allowEmptyString('assignee_id');
 

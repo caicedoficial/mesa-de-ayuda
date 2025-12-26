@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Controller\Traits\StatisticsControllerTrait;
 use App\Controller\Traits\TicketSystemControllerTrait;
 use App\Service\PqrsService;
 use App\Service\StatisticsService;
@@ -20,6 +21,7 @@ use Cake\Event\EventInterface;
  */
 class PqrsController extends AppController
 {
+    use StatisticsControllerTrait;
     use TicketSystemControllerTrait;
     private PqrsService $pqrsService;
     private ResponseService $responseService;
@@ -217,53 +219,7 @@ class PqrsController extends AppController
      */
     public function statistics()
     {
-        // Get date range from query params (default: last 30 days)
-        $dateFrom = $this->request->getQuery('date_from', date('Y-m-d', strtotime('-30 days')));
-        $dateTo = $this->request->getQuery('date_to', date('Y-m-d'));
-
-        // Get statistics from service
-        $stats = $this->statisticsService->getPqrsStats([
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
-        ]);
-
-        $trends = $this->statisticsService->getPqrsTrendData(30);
-
-        // Extract data for view
-        $totalPqrs = $stats['total_pqrs'];
-        $totalResolved = $stats['total_resolved'];
-        $totalPending = $stats['total_pending'];
-        $totalUnassigned = $stats['total_unassigned'];
-        $statusCounts = $stats['status_counts'];
-        $typeCounts = $stats['type_counts'];
-        $priorityCounts = $stats['priority_counts'];
-        $recentPqrs = $stats['recent_pqrs'];
-        $resolvedInPeriod = $stats['resolved_in_period'];
-        $avgResolutionDays = $stats['avg_resolution_days'];
-        $avgResolutionHours = $stats['avg_resolution_hours'];
-        $topAgents = $stats['top_agents'];
-
-        $chartLabels = $trends['chart_labels'];
-        $chartData = $trends['chart_data'];
-
-        $this->set(compact(
-            'totalPqrs',
-            'totalResolved',
-            'totalPending',
-            'totalUnassigned',
-            'statusCounts',
-            'typeCounts',
-            'priorityCounts',
-            'recentPqrs',
-            'resolvedInPeriod',
-            'avgResolutionDays',
-            'avgResolutionHours',
-            'topAgents',
-            'chartLabels',
-            'chartData',
-            'dateFrom',
-            'dateTo'
-        ));
+        $this->renderStatistics('pqrs', ['defaultRange' => '30days']);
     }
 
     /**

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Controller\Traits\StatisticsControllerTrait;
 use App\Controller\Traits\TicketSystemControllerTrait;
 use App\Service\TicketService;
 use App\Service\EmailService;
@@ -18,6 +19,7 @@ use Cake\Cache\Cache;
  */
 class TicketsController extends AppController
 {
+    use StatisticsControllerTrait;
     use TicketSystemControllerTrait;
     private TicketService $ticketService;
     private EmailService $emailService;
@@ -97,31 +99,9 @@ class TicketsController extends AppController
                 // Get all tags for selection
                 $tags = $this->fetchTable('Tags')->find('list')->toArray();
 
-                // Get compras users for conversion
-                $comprasUsers = $this->fetchTable('Users')->find()
-                    ->where(['role' => 'compras', 'is_active' => true])
-                    ->orderBy(['first_name' => 'ASC', 'last_name' => 'ASC'])
-                    ->all()
-                    ->combine('id', function ($user) {
-                        return $user->first_name . ' ' . $user->last_name;
-                    })
-                    ->toArray();
-
-                return array_merge($viewVars, compact('tags', 'comprasUsers'));
+                return array_merge($viewVars, compact('tags'));
             },
         ]);
-    }
-
-    /**
-     * View method - Show ticket detail (Compras simplified view)
-     *
-     * @param string|null $id Ticket id.
-     * @return \Cake\Http\Response|null|void Renders view
-     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     */
-    public function viewCompras($id = null)
-    {
-        return $this->view($id);
     }
 
     /**
@@ -144,22 +124,6 @@ class TicketsController extends AppController
         if ($userRole === 'requester' && $ticket->requester_id !== $userId) {
             $this->Flash->error('No tienes permiso para ver este ticket.');
             return $this->redirect(['action' => 'index']);
-        }
-
-        // Compras can only view tickets assigned to them
-        if ($userRole === 'compras' && $ticket->assignee_id !== $userId) {
-            $this->Flash->error('No tienes permiso para ver este ticket.');
-            return $this->redirect(['action' => 'index']);
-        }
-
-        // Agent cannot view tickets assigned to compras users
-        if ($userRole === 'agent' && $ticket->assignee_id !== null) {
-            $assignee = $this->fetchTable('Users')->get($ticket->assignee_id);
-            assert($assignee instanceof \App\Model\Entity\User);
-            if ($assignee->role === 'compras') {
-                $this->Flash->error('No tienes permiso para ver este ticket.');
-                return $this->redirect(['action' => 'index']);
-            }
         }
 
         return null;
@@ -314,95 +278,13 @@ class TicketsController extends AppController
     }
 
     /**
-     * Dashboard - Statistics and metrics
+     * Statistics - Dashboard with metrics and analytics
      *
      * @return \Cake\Http\Response|null|void Renders view
      */
-    public function dashboard()
+    public function statistics()
     {
-        // Get date range from query params
-        $dateRange = $this->request->getQuery('range', 'all');
-        $startDate = $this->request->getQuery('start_date');
-        $endDate = $this->request->getQuery('end_date');
-
-        // Get statistics from service
-        $stats = $this->statisticsService->getTicketStats([
-            'date_range' => $dateRange,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-        ]);
-
-        $agentPerformance = $this->statisticsService->getAgentPerformance();
-        $recentActivity = $this->statisticsService->getRecentActivity();
-        $trends = $this->statisticsService->getTrendData('30days');
-
-        // Extract data for view
-        $totalTickets = $stats['total_tickets'];
-        $ticketsByStatus = $stats['tickets_by_status'];
-        $ticketsByPriority = $stats['tickets_by_priority'];
-        $recentTickets = $stats['recent_tickets'];
-        $recentResolved = $stats['recent_resolved'];
-        $unassignedTickets = $stats['unassigned_tickets'];
-        $avgResponseTime = $stats['avg_response_time'];
-        $avgResolutionTime = $stats['avg_resolution_time'];
-        $responseRate = $stats['response_rate'];
-        $resolutionRate = $stats['resolution_rate'];
-        $resolvedCount = $stats['resolved_count'];
-
-        $activeAgents = $agentPerformance['active_agents'];
-        $ticketsByAgent = $agentPerformance['tickets_by_agent'];
-
-        $topRequesters = $recentActivity['top_requesters'];
-        $totalComments = $recentActivity['total_comments'];
-        $publicComments = $recentActivity['public_comments'];
-        $internalComments = $recentActivity['internal_comments'];
-
-        $ticketsPerDay = $trends['tickets_per_day'];
-
-        // Set default dates for display
-        if ($dateRange !== 'custom') {
-            $now = new \DateTime();
-            switch ($dateRange) {
-                case 'today':
-                    $startDate = $now->format('Y-m-d');
-                    $endDate = $now->format('Y-m-d');
-                    break;
-                case 'week':
-                    $startDate = (new \DateTime('-7 days'))->format('Y-m-d');
-                    $endDate = $now->format('Y-m-d');
-                    break;
-                case 'month':
-                    $startDate = (new \DateTime('-30 days'))->format('Y-m-d');
-                    $endDate = $now->format('Y-m-d');
-                    break;
-                default:
-                    $startDate = null;
-                    $endDate = null;
-            }
-        }
-
-        $this->set(compact(
-            'totalTickets',
-            'ticketsByStatus',
-            'ticketsByPriority',
-            'recentTickets',
-            'recentResolved',
-            'unassignedTickets',
-            'activeAgents',
-            'ticketsByAgent',
-            'avgResponseTime',
-            'avgResolutionTime',
-            'ticketsPerDay',
-            'topRequesters',
-            'totalComments',
-            'publicComments',
-            'internalComments',
-            'responseRate',
-            'resolutionRate',
-            'dateRange',
-            'startDate',
-            'endDate'
-        ));
+        $this->renderStatistics('ticket', ['defaultRange' => 'all']);
     }
 
     /**
@@ -479,8 +361,8 @@ class TicketsController extends AppController
         $this->request->allowMethod(['post']);
 
         $user = $this->Authentication->getIdentity();
-        // Allow admin, agent, and compras users to convert tickets
-        $allowedRoles = ['admin', 'agent', 'compras'];
+        // Allow admin and agent to convert tickets
+        $allowedRoles = ['admin', 'agent'];
         if (!$user || !in_array($user->role, $allowedRoles)) {
             $this->Flash->error(__('No tienes permiso para esta acción.'));
             return $this->redirect(['action' => 'view', $id]);
@@ -494,16 +376,12 @@ class TicketsController extends AppController
             $systemConfig = $this->viewBuilder()->getVar('systemConfig');
             $comprasService = new \App\Service\ComprasService($systemConfig);
 
-            $compraData = [
-                'assignee_id' => $this->request->getData('assignee_id'),
-                'user_id' => $user->id,
-            ];
-
-            $compra = $comprasService->createFromTicket($ticket, $compraData);
+            // Create compra without assignee (will be assigned in Compras module)
+            $compra = $comprasService->createFromTicket($ticket);
 
             if ($compra) {
 
-                $ticket->status = 'resuelto';
+                $ticket->status = 'convertido';
                 $ticket->resolved_at = new \Cake\I18n\DateTime();
 
                 $ticketCommentsTable = $this->fetchTable('TicketComments');
@@ -516,8 +394,6 @@ class TicketsController extends AppController
                     'sent_as_email' => false,
                 ]));
 
-                $this->Tickets->save($ticket);
-
                 $ticketHistoryTable = $this->fetchTable('TicketHistory');
                 $ticketHistoryTable->save($ticketHistoryTable->newEntity([
                     'ticket_id' => $ticket->id,
@@ -527,7 +403,8 @@ class TicketsController extends AppController
                     'new_value' => $compra->compra_number,
                     'description' => "Convertido a Compra #{$compra->compra_number}",
                 ]));
-
+                
+                $this->Tickets->save($ticket);
                 $comprasService->copyTicketData($ticket, $compra);
 
                 $this->Flash->success(__(

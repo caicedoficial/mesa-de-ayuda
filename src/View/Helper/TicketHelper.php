@@ -27,11 +27,6 @@ class TicketHelper extends Helper
 
         $userRole = $user->get('role');
 
-        // Compras users cannot reassign tickets
-        if ($userRole === 'compras') {
-            return false;
-        }
-
         // Admin and agents can assign
         return in_array($userRole, ['admin', 'agent']);
     }
@@ -44,11 +39,6 @@ class TicketHelper extends Helper
      */
     public function getViewUrl($ticket): array
     {
-        // If ticket is assigned to a compras user, use viewCompras
-        if ($ticket->assignee && $ticket->assignee->role === 'compras') {
-            return ['action' => 'view_compras', $ticket->id];
-        }
-
         return ['action' => 'view', $ticket->id];
     }
 
@@ -66,7 +56,7 @@ class TicketHelper extends Helper
 
         $userRole = $user->get('role');
 
-        // Compras users cannot change assignments
-        return $userRole === 'compras';
+        // Only admin and agent can change assignments
+        return !in_array($userRole, ['admin', 'agent']);
     }
 }

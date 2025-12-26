@@ -22,14 +22,14 @@ $attachments = $attachments ?? ($entity->compras_attachments ?? []);
 // Nombres de campos según entityType
 if ($entityType === 'ticket') {
     $commentIdField = 'comment_id';
-    $attachmentElementPath = 'tickets/attachment_list';
 } elseif ($entityType === 'pqrs') {
     $commentIdField = 'pqrs_comment_id';
-    $attachmentElementPath = 'pqrs/attachment_list';
 } else { // compra
     $commentIdField = 'compras_comment_id';
-    $attachmentElementPath = 'shared/attachment_list';
 }
+
+// ✨ ALWAYS use shared/attachment_list for consistency
+$attachmentElementPath = 'shared/attachment_list';
 
 // Datos del requester
 if ($entityType === 'ticket' || $entityType === 'compra') {
@@ -62,9 +62,9 @@ if ($entityType === 'ticket' || $entityType === 'compra') {
                     <small class="text-muted"><?= $this->TimeHuman->time($entity->created) ?></small>
                 </div>
 
-                <?php if ($entityType === 'ticket'): ?>
+                <?php if (in_array($entityType, ['ticket', 'compra'])): ?>
                     <?php
-                    // Show email recipients if available (only for tickets from Gmail)
+                    // Show email recipients if available (for tickets and compras from Gmail)
                     $emailTo = $entity->email_to_array ?? [];
                     $emailCc = $entity->email_cc_array ?? [];
                     if (!empty($emailTo) || !empty($emailCc)):
@@ -149,7 +149,7 @@ if ($entityType === 'ticket' || $entityType === 'compra') {
             return $a->content_id && strpos($description, $a->content_id) === false;
         });
         ?>
-        <?= $this->element($attachmentElementPath, ['attachments' => $entityAttachments, 'entityType' => $entityType]) ?>
+        <?= $this->element('shared/attachment_list', ['attachments' => $entityAttachments, 'entityType' => $entityType]) ?>
     </div>
 
     <!-- Comments Thread -->
@@ -210,7 +210,7 @@ if ($entityType === 'ticket' || $entityType === 'compra') {
                         return $a->content_id && strpos($comment->body, $a->content_id) === false;
                     });
                     ?>
-                    <?= $this->element($attachmentElementPath, ['attachments' => $commentAttachments]) ?>
+                    <?= $this->element('shared/attachment_list', ['attachments' => $commentAttachments, 'entityType' => $entityType]) ?>
                 </div>
             <?php endif; ?>
         <?php endforeach; ?>

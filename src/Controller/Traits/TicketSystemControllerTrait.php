@@ -5,6 +5,7 @@ namespace App\Controller\Traits;
 
 use Cake\Http\Response;
 use App\Service\Traits\GenericAttachmentTrait;
+use App\Controller\Traits\ViewDataNormalizerTrait;
 
 /**
  * TicketSystemControllerTrait
@@ -35,6 +36,7 @@ use App\Service\Traits\GenericAttachmentTrait;
 trait TicketSystemControllerTrait
 {
     use GenericAttachmentTrait;
+    use ViewDataNormalizerTrait;
     /**
      * Assign entity (ticket or PQRS) to agent
      *
@@ -758,43 +760,6 @@ trait TicketSystemControllerTrait
         if ($userRole === 'requester' && $entityType === 'ticket') {
             $query->where([$tableAlias . '.requester_id' => $userId]);
         }
-
-        // Compras role specific filters (for tickets)
-        if ($userRole === 'compras' && $entityType === 'ticket') {
-            $query->where([
-                'OR' => [
-                    $tableAlias . '.assignee_id' => $userId,
-                    'AND' => [
-                        $tableAlias . '.assignee_id' => $userId,
-                        $tableAlias . '.status' => 'resuelto'
-                    ]
-                ]
-            ]);
-        }
-
-        // Agent role: exclude tickets assigned to compras users
-        if ($userRole === 'agent' && $entityType === 'ticket') {
-            // PERFORMANCE: Cache compras user IDs
-            $cacheKey = 'compras_user_ids';
-            $comprasUserIds = \Cake\Cache\Cache::remember($cacheKey, function () {
-                return $this->fetchTable('Users')
-                    ->find()
-                    ->select(['id'])
-                    ->where(['role' => 'compras'])
-                    ->all()
-                    ->extract('id')
-                    ->toArray();
-            }, '_cake_core_');
-
-            if (!empty($comprasUserIds)) {
-                $query->where([
-                    'OR' => [
-                        $tableAlias . '.assignee_id IS' => null,
-                        $tableAlias . '.assignee_id NOT IN' => $comprasUserIds,
-                    ],
-                ]);
-            }
-        }
     }
 
     /**
@@ -920,7 +885,7 @@ trait TicketSystemControllerTrait
     private function getDefaultUsersRoleFilter(string $entityType): ?array
     {
         return match ($entityType) {
-            'ticket' => ['admin', 'agent', 'compras'],
+            'ticket' => ['admin', 'agent'],
             'pqrs' => ['servicio_cliente'],
             'compra' => ['compras'],
             default => null,
@@ -1040,6 +1005,22 @@ trait TicketSystemControllerTrait
             $viewVars = $config['beforeSet']($entity, $viewVars);
         }
 
+        // ✨ AUTO-INJECT NORMALIZED DATA for view templates
+        // This ensures all entity views (ticket, pqrs, compra) receive consistent data structure
+        // Get all statuses and remove 'convertido' (only system-assignable, not user-selectable)
+        $allStatuses = $this->getStatusConfig($entityType);
+        $selectableStatuses = array_filter($allStatuses, function($key) {
+            return $key !== 'convertido';
+        }, ARRAY_FILTER_USE_KEY);
+
+        $viewVars = array_merge($viewVars, [
+            'entityType' => $entityType,
+            'entityMetadata' => $this->getEntityMetadata($entityType, $entity),
+            'statuses' => $selectableStatuses,
+            'priorities' => $this->getPriorityConfig($entityType),
+            'resolvedStatuses' => $this->getResolvedStatuses($entityType),
+        ]);
+
         $this->set($viewVars);
 
         return null;
@@ -1110,7 +1091,7 @@ trait TicketSystemControllerTrait
     private function getDefaultAgentsRoleFilter(string $entityType): array
     {
         return match ($entityType) {
-            'ticket' => ['admin', 'agent', 'compras'],
+            'ticket' => ['admin', 'agent'],
             'pqrs' => ['servicio_cliente'],
             'compra' => ['compras'],
             default => ['admin', 'agent'],
@@ -1156,14 +1137,6 @@ trait TicketSystemControllerTrait
 
             // Requester can only view their own entities
             if ($userRole === 'requester' && $entity->requester_id !== $userId) {
-                $this->set('error', 'No tienes permiso para ver este historial');
-                $this->viewBuilder()->setOption('serialize', ['error']);
-                $this->response = $this->response->withStatus(403);
-                return;
-            }
-
-            // Compras can only view entities assigned to them
-            if ($userRole === 'compras' && $entity->assignee_id !== $userId) {
                 $this->set('error', 'No tienes permiso para ver este historial');
                 $this->viewBuilder()->setOption('serialize', ['error']);
                 $this->response = $this->response->withStatus(403);

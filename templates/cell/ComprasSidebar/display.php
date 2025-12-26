@@ -100,6 +100,14 @@
 
         <li class="list-group-item">
             <?= $this->Html->link(
+                '<span class="badge bg-secondary me-2 shadow-sm">⇄</span>Convertidos <span class="count">' . $counts['convertidos'] . '</span>',
+                ['action' => 'index', '?' => ['view' => 'convertidos']],
+                ['class' => $view === 'convertidos' ? 'active' : '', 'escape' => false]
+            ) ?>
+        </li>
+
+        <li class="list-group-item">
+            <?= $this->Html->link(
                 '<i class="bi bi-exclamation-triangle-fill text-danger"></i> SLA Vencidos <span class="count">' . $counts['vencidos_sla'] . '</span>',
                 ['action' => 'index', '?' => ['view' => 'vencidos_sla']],
                 ['class' => $view === 'vencidos_sla' ? 'active' : '', 'escape' => false]

@@ -33,6 +33,33 @@
             </div>
         </section>
 
+        <?php if (isset($user) && in_array($user->role, ['admin', 'compras']) && !in_array($compra->status, ['completado', 'rechazado'])): ?>
+            <section class="mb-3">
+                <div class="card border-0">
+                    <div class="card-header bg-primary bg-opacity-50 text-dark small fw-bold text-center">
+                        <i class="bi bi-ticket-fill"></i> Convertir a Ticket
+                    </div>
+                    <div class="card-body p-3">
+                        <p class="small text-muted mb-3 fw-light">
+                            Convierte esta compra en un ticket de soporte. La compra será marcada como completada.
+                        </p>
+                        <?= $this->Form->create(null, [
+                            'url' => ['action' => 'convertToTicket', $compra->id]
+                        ]) ?>
+                            <?= $this->Form->button(
+                                '<i class="bi bi-arrow-left-circle me-1"></i> Convertir',
+                                [
+                                    'class' => 'btn btn-primary btn-sm w-100 shadow-sm',
+                                    'escapeTitle' => false,
+                                    'onclick' => 'return confirm("¿Estás seguro de convertir esta compra a un ticket? La compra será marcada como completada.")'
+                                ]
+                            ) ?>
+                        <?= $this->Form->end() ?>
+                    </div>
+                </div>
+            </section>
+        <?php endif; ?>
+
         <section class="mb-3">
             <h3 class="fs-6 fw-semibold mb-3">Historial de Cambios</h3>
             <!-- PERFORMANCE FIX: Lazy load history on scroll -->

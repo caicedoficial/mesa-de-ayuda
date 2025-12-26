@@ -136,38 +136,6 @@ class UsersTable extends Table
     }
 
     /**
-     * After save callback - clear compras users cache if role is compras
-     *
-     * @param \Cake\Event\EventInterface $_event The event
-     * @param \App\Model\Entity\User $entity The user entity
-     * @param \ArrayObject $_options Options
-     * @return void
-     */
-    public function afterSave(EventInterface $_event, $entity, $_options)
-    {
-        // PERFORMANCE FIX: Clear cache when compras user is created/updated
-        if ($entity->role === 'compras' || $entity->isDirty('role')) {
-            Cache::delete('compras_user_ids');
-        }
-    }
-
-    /**
-     * After delete callback - clear compras users cache if role is compras
-     *
-     * @param \Cake\Event\EventInterface $_event The event
-     * @param \App\Model\Entity\User $entity The user entity
-     * @param \ArrayObject $_options Options
-     * @return void
-     */
-    public function afterDelete(EventInterface $_event, $entity, $_options)
-    {
-        // PERFORMANCE FIX: Clear cache when compras user is deleted
-        if ($entity->role === 'compras') {
-            Cache::delete('compras_user_ids');
-        }
-    }
-
-    /**
      * Save profile image for a user
      *
      * @param int $userId User ID

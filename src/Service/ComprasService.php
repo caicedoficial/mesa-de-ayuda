@@ -51,6 +51,9 @@ class ComprasService
                 'priority' => $ticket->priority,
                 'requester_id' => $ticket->requester_id,
                 'assignee_id' => $data['assignee_id'] ?? null,
+                'channel' => $ticket->channel ?? 'email',
+                'email_to' => $ticket->email_to,  // Copy email recipients
+                'email_cc' => $ticket->email_cc,  // Copy CC recipients (managers, etc.)
                 'sla_due_date' => $slaDate,
             ]);
 
@@ -136,7 +139,7 @@ class ComprasService
                     'file_size' => $attachment->file_size,
                     'is_inline' => $attachment->is_inline,
                     'content_id' => $attachment->content_id,
-                    'uploaded_by_user_id' => $attachment->uploaded_by_user_id,
+                    'uploaded_by_user_id' => $attachment->uploaded_by,  // Corrected: tickets use 'uploaded_by'
                 ]);
                 $comprasAttachmentsTable->save($newAttachment);
             }

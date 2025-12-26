@@ -17,6 +17,9 @@ use Cake\ORM\Entity;
  * @property string $priority
  * @property int $requester_id
  * @property int|null $assignee_id
+ * @property string $channel
+ * @property string|null $email_to
+ * @property string|null $email_cc
  * @property \Cake\I18n\DateTime|null $sla_due_date
  * @property \Cake\I18n\DateTime|null $created
  * @property \Cake\I18n\DateTime|null $modified
@@ -40,6 +43,9 @@ class Compra extends Entity
         'priority' => true,
         'requester_id' => true,
         'assignee_id' => true,
+        'channel' => true,
+        'email_to' => true,
+        'email_cc' => true,
         'sla_due_date' => true,
         'created' => true,
         'modified' => true,
@@ -51,4 +57,80 @@ class Compra extends Entity
         'compras_attachments' => true,
         'compras_history' => true,
     ];
+
+    /**
+     * Set email_to as JSON (encode array)
+     *
+     * @param array|string|null $value Array of recipients or JSON string
+     * @return string|null JSON string or null
+     */
+    protected function _setEmailTo($value): ?string
+    {
+        if (is_array($value)) {
+            // Return null for empty arrays
+            if (empty($value)) {
+                return null;
+            }
+            return json_encode($value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Set email_cc as JSON (encode array)
+     *
+     * @param array|string|null $value Array of recipients or JSON string
+     * @return string|null JSON string or null
+     */
+    protected function _setEmailCc($value): ?string
+    {
+        if (is_array($value)) {
+            // Return null for empty arrays
+            if (empty($value)) {
+                return null;
+            }
+            return json_encode($value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Get decoded email_to as array (virtual property)
+     *
+     * Access via $compra->email_to_array (not $compra->email_to)
+     *
+     * @return array Array of recipients with 'name' and 'email' keys
+     */
+    protected function _getEmailToArray(): array
+    {
+        $value = $this->_fields['email_to'] ?? null;
+
+        if (empty($value)) {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Get decoded email_cc as array (virtual property)
+     *
+     * Access via $compra->email_cc_array (not $compra->email_cc)
+     *
+     * @return array Array of recipients with 'name' and 'email' keys
+     */
+    protected function _getEmailCcArray(): array
+    {
+        $value = $this->_fields['email_cc'] ?? null;
+
+        if (empty($value)) {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
 }

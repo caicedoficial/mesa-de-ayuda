@@ -3,17 +3,19 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Service\Traits\StatisticsServiceTrait;
 use Cake\ORM\Locator\LocatorAwareTrait;
 
 /**
  * Statistics Service
  *
- * Centralizes all dashboard and reporting queries for Tickets and PQRS.
- * Provides methods for retrieving statistics, metrics, and analytics data.
+ * Centralizes all dashboard and reporting queries for Tickets, PQRS, and Compras.
+ * Uses StatisticsServiceTrait for shared logic across all modules.
  */
 class StatisticsService
 {
     use LocatorAwareTrait;
+    use StatisticsServiceTrait;
 
     /**
      * Get ticket statistics
@@ -23,77 +25,32 @@ class StatisticsService
      */
     public function getTicketStats(array $filters = []): array
     {
-        $ticketsTable = $this->fetchTable('Tickets');
+        $parsedFilters = $this->parseDateFilters($filters);
+        $baseQuery = $this->buildBaseQuery('Tickets', $parsedFilters);
 
-        // Extract filters
-        $dateRange = $filters['date_range'] ?? 'all';
-        $startDate = $filters['start_date'] ?? null;
-        $endDate = $filters['end_date'] ?? null;
+        // Use trait methods for common metrics
+        $statusDistribution = $this->getStatusDistribution(
+            'Tickets',
+            ['nuevo', 'abierto', 'pendiente', 'resuelto', 'convertido'],
+            $baseQuery
+        );
 
-        // Set default dates based on range
-        $now = new \DateTime();
-        switch ($dateRange) {
-            case 'today':
-                $startDate = $now->format('Y-m-d');
-                $endDate = $now->format('Y-m-d');
-                break;
-            case 'week':
-                $startDate = (new \DateTime('-7 days'))->format('Y-m-d');
-                $endDate = $now->format('Y-m-d');
-                break;
-            case 'month':
-                $startDate = (new \DateTime('-30 days'))->format('Y-m-d');
-                $endDate = $now->format('Y-m-d');
-                break;
-            case 'custom':
-                // Use provided dates
-                break;
-            default:
-                // 'all' - no date filter
-                $startDate = null;
-                $endDate = null;
-        }
+        $priorityDistribution = $this->getPriorityDistribution('Tickets', $baseQuery);
 
-        // Build base query with date filter
-        $baseQuery = $ticketsTable->find();
-        if ($startDate && $endDate) {
-            $baseQuery->where([
-                'Tickets.created >=' => $startDate . ' 00:00:00',
-                'Tickets.created <=' => $endDate . ' 23:59:59'
-            ]);
-        }
+        $avgResponseTime = $this->getAvgResponseTime('Tickets', $baseQuery);
+        $avgResolutionTime = $this->getAvgResolutionTime('Tickets', $baseQuery);
 
-        // Total tickets
+        $responseRate = $this->calculateResponseRate('Tickets', $baseQuery);
+        $resolutionRate = $this->calculateResolutionRate('Tickets', $baseQuery);
+
         $totalTickets = (clone $baseQuery)->count();
+        $resolvedCount = $statusDistribution['resuelto'] ?? 0;
 
-        // Tickets by status
-        $ticketsByStatus = (clone $baseQuery)
-            ->select([
-                'status',
-                'count' => $baseQuery->func()->count('*')
-            ])
-            ->group('status')
-            ->all()
-            ->combine('status', 'count')
-            ->toArray();
-
-        // Tickets by priority
-        $ticketsByPriority = (clone $baseQuery)
-            ->select([
-                'priority',
-                'count' => $baseQuery->func()->count('*')
-            ])
-            ->group('priority')
-            ->all()
-            ->combine('priority', 'count')
-            ->toArray();
-
-        // Recent tickets (last 7 days)
-        $recentTickets = $ticketsTable->find()
-            ->where(['created >=' => new \DateTime('-7 days')])
-            ->count();
+        // Recent tickets (last 7 days) - independent query
+        $recentTickets = $this->getRecentActivityCount('Tickets');
 
         // Resolved tickets (last 7 days)
+        $ticketsTable = $this->fetchTable('Tickets');
         $recentResolved = $ticketsTable->find()
             ->where([
                 'status' => 'resuelto',
@@ -101,45 +58,12 @@ class StatisticsService
             ])
             ->count();
 
-        // Tickets without assignment
-        $unassignedTickets = $ticketsTable->find()
-            ->where(['assignee_id IS' => null])
-            ->count();
-
-        // Average response time (hours) - MySQL compatible
-        $avgResponseTime = $ticketsTable->find()
-            ->where(['first_response_at IS NOT' => null])
-            ->select([
-                'avg_hours' => $ticketsTable->find()->func()->avg(
-                    "TIMESTAMPDIFF(SECOND, created, first_response_at) / 3600"
-                )
-            ])
-            ->first();
-
-        // Average resolution time (hours) - MySQL compatible
-        $avgResolutionTime = $ticketsTable->find()
-            ->where(['resolved_at IS NOT' => null])
-            ->select([
-                'avg_hours' => $ticketsTable->find()->func()->avg(
-                    "TIMESTAMPDIFF(SECOND, created, resolved_at) / 3600"
-                )
-            ])
-            ->first();
-
-        // Response rate (tickets with at least one response)
-        $ticketsWithResponse = $ticketsTable->find()
-            ->where(['first_response_at IS NOT' => null])
-            ->count();
-        $responseRate = $totalTickets > 0 ? round(($ticketsWithResponse / $totalTickets) * 100, 1) : 0;
-
-        // Resolution rate (tickets resolved / total tickets) - calculated from existing data
-        $resolvedCount = $ticketsByStatus['resuelto'] ?? 0;
-        $resolutionRate = $totalTickets > 0 ? round(($resolvedCount / $totalTickets) * 100, 1) : 0;
+        $unassignedTickets = $this->getUnassignedCount('Tickets');
 
         return [
             'total_tickets' => $totalTickets,
-            'tickets_by_status' => $ticketsByStatus,
-            'tickets_by_priority' => $ticketsByPriority,
+            'tickets_by_status' => $statusDistribution,
+            'tickets_by_priority' => $priorityDistribution,
             'recent_tickets' => $recentTickets,
             'recent_resolved' => $recentResolved,
             'unassigned_tickets' => $unassignedTickets,
@@ -152,50 +76,35 @@ class StatisticsService
     }
 
     /**
-     * Get agent performance metrics
+     * Get agent performance metrics for Tickets
      *
      * @param array $filters Optional filters
      * @return array Agent performance data
      */
-    public function getAgentPerformance(array $filters = []): array
+    public function getTicketAgentPerformance(array $filters = []): array
     {
-        $ticketsTable = $this->fetchTable('Tickets');
-        $usersTable = $this->fetchTable('Users');
-
-        // Active agents
-        $activeAgents = $usersTable->find()
-            ->where([
-                'role IN' => ['admin', 'agent', 'compras'],
-                'is_active' => true
-            ])
-            ->count();
-
-        // Tickets by agent (top 5)
-        $ticketsByAgent = $ticketsTable->find()
-            ->contain(['Assignees'])
-            ->where(['assignee_id IS NOT' => null])
-            ->select([
-                'assignee_id',
-                'agent_name' => $ticketsTable->find()->func()->concat([
-                    'Assignees.first_name' => 'identifier',
-                    ' ',
-                    'Assignees.last_name' => 'identifier'
-                ]),
-                'count' => $ticketsTable->find()->func()->count('*')
-            ])
-            ->group(['assignee_id'])
-            ->order(['count' => 'DESC'])
-            ->limit(5)
-            ->all();
+        // Call trait method (no longer conflicts since this method has different name)
+        $performanceData = $this->getAgentPerformance('Tickets', [], 5);
 
         return [
-            'active_agents' => $activeAgents,
-            'tickets_by_agent' => $ticketsByAgent,
+            'active_agents' => $performanceData['active_agents_count'],
+            'tickets_by_agent' => $performanceData['top_agents'],
         ];
     }
 
     /**
-     * Get recent activity for dashboard
+     * Get ticket trend data for charts
+     *
+     * @param int $days Number of days to include
+     * @return array Chart data
+     */
+    public function getTicketTrendData(int $days = 30): array
+    {
+        return $this->getTrendData('Tickets', $days);
+    }
+
+    /**
+     * Get recent activity for Tickets dashboard
      *
      * @param int $limit Number of items to return
      * @return array Recent activity data
@@ -260,149 +169,75 @@ class StatisticsService
         ];
     }
 
-    /**
-     * Get trend data for charts
-     *
-     * @param string $period Period for trends (e.g., '30days')
-     * @return array Trend data
-     */
-    public function getTrendData(string $period = '30days'): array
-    {
-        $ticketsTable = $this->fetchTable('Tickets');
-
-        // Parse period
-        $days = (int) filter_var($period, FILTER_SANITIZE_NUMBER_INT);
-        if ($days <= 0) {
-            $days = 30;
-        }
-
-        // Tickets created per day
-        $ticketsPerDay = $ticketsTable->find()
-            ->where(['created >=' => new \DateTime("-{$days} days")])
-            ->select([
-                'date' => 'DATE(created)',
-                'count' => $ticketsTable->find()->func()->count('*')
-            ])
-            ->group('DATE(created)')
-            ->order(['date' => 'ASC'])
-            ->all()
-            ->combine('date', 'count')
-            ->toArray();
-
-        return [
-            'tickets_per_day' => $ticketsPerDay,
-        ];
-    }
 
     /**
      * Get PQRS statistics
      *
-     * @param array $filters Optional filters (date_from, date_to)
+     * @param array $filters Optional filters (date_from, date_to, date_range)
      * @return array PQRS statistics data
      */
     public function getPqrsStats(array $filters = []): array
     {
-        $pqrsTable = $this->fetchTable('Pqrs');
+        // Handle both old format (date_from/date_to) and new format (date_range)
+        if (!isset($filters['date_range']) && (isset($filters['date_from']) || isset($filters['date_to']))) {
+            // Convert old format to new format
+            $filters['date_range'] = 'custom';
+            $filters['start_date'] = $filters['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
+            $filters['end_date'] = $filters['date_to'] ?? date('Y-m-d');
+        }
 
-        // Get date range from filters (default: last 30 days)
-        $dateFrom = $filters['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
-        $dateTo = $filters['date_to'] ?? date('Y-m-d');
+        $parsedFilters = $this->parseDateFilters($filters);
 
-        // Optimize with GROUP BY queries
-        // Get status counts in single query
-        $statusCountsRaw = $pqrsTable->find()
-            ->select(['status', 'count' => $pqrsTable->find()->func()->count('*')])
-            ->group(['status'])
-            ->all()
-            ->combine('status', 'count')
-            ->toArray();
+        // For PQRS, default to last 30 days if 'all' is selected
+        if ($parsedFilters['date_range'] === 'all' || $parsedFilters['date_range'] === '30days') {
+            $parsedFilters['start_date'] = date('Y-m-d', strtotime('-30 days'));
+            $parsedFilters['end_date'] = date('Y-m-d');
+        }
 
-        $statusCounts = [
-            'nuevo' => $statusCountsRaw['nuevo'] ?? 0,
-            'en_revision' => $statusCountsRaw['en_revision'] ?? 0,
-            'en_proceso' => $statusCountsRaw['en_proceso'] ?? 0,
-            'resuelto' => $statusCountsRaw['resuelto'] ?? 0,
-            'cerrado' => $statusCountsRaw['cerrado'] ?? 0,
-        ];
+        $baseQuery = $this->buildBaseQuery('Pqrs', $parsedFilters);
 
-        // Get type counts in single query
-        $typeCountsRaw = $pqrsTable->find()
-            ->select(['type', 'count' => $pqrsTable->find()->func()->count('*')])
-            ->group(['type'])
-            ->all()
-            ->combine('type', 'count')
-            ->toArray();
+        // Use trait methods
+        $statusCounts = $this->getStatusDistribution(
+            'Pqrs',
+            ['nuevo', 'en_revision', 'en_proceso', 'resuelto', 'cerrado'],
+            $baseQuery
+        );
 
-        $typeCounts = [
-            'peticion' => $typeCountsRaw['peticion'] ?? 0,
-            'queja' => $typeCountsRaw['queja'] ?? 0,
-            'reclamo' => $typeCountsRaw['reclamo'] ?? 0,
-            'sugerencia' => $typeCountsRaw['sugerencia'] ?? 0,
-        ];
+        $priorityCounts = $this->getPriorityDistribution('Pqrs', $baseQuery);
 
-        // Get priority counts in single query
-        $priorityCountsRaw = $pqrsTable->find()
-            ->select(['priority', 'count' => $pqrsTable->find()->func()->count('*')])
-            ->group(['priority'])
-            ->all()
-            ->combine('priority', 'count')
-            ->toArray();
+        // Get type distribution (PQRS-specific)
+        $typeCounts = $this->getTypeDistribution();
 
-        $priorityCounts = [
-            'baja' => $priorityCountsRaw['baja'] ?? 0,
-            'media' => $priorityCountsRaw['media'] ?? 0,
-            'alta' => $priorityCountsRaw['alta'] ?? 0,
-            'urgente' => $priorityCountsRaw['urgente'] ?? 0,
-        ];
+        // Get channel distribution (now implemented in trait)
+        $channelCounts = $this->getChannelDistribution('Pqrs', $baseQuery);
 
-        // Calculate totals from grouped data
+        // Calculate totals
         $totalPqrs = array_sum($statusCounts);
         $totalResolved = ($statusCounts['resuelto'] ?? 0) + ($statusCounts['cerrado'] ?? 0);
         $totalPending = $totalPqrs - $totalResolved;
-        $totalUnassigned = $pqrsTable->find()->where(['assignee_id IS' => null])->count();
 
-        // Recent PQRS (last 7 days)
-        $recentPqrs = $pqrsTable->find()
-            ->where(['created >=' => date('Y-m-d', strtotime('-7 days'))])
-            ->count();
+        $totalUnassigned = $this->getUnassignedCount('Pqrs');
+        $recentPqrs = $this->getRecentActivityCount('Pqrs');
 
         // Resolved in period
+        $pqrsTable = $this->fetchTable('Pqrs');
         $resolvedInPeriod = $pqrsTable->find()
             ->where([
                 'resolved_at IS NOT' => null,
-                'resolved_at >=' => $dateFrom,
-                'resolved_at <=' => $dateTo . ' 23:59:59'
+                'resolved_at >=' => $parsedFilters['start_date'],
+                'resolved_at <=' => $parsedFilters['end_date'] . ' 23:59:59'
             ])
             ->count();
 
-        // Average resolution time (in days) - MySQL compatible
-        $resolvedWithTime = $pqrsTable->find()
-            ->select([
-                'avg_time' => "AVG(TIMESTAMPDIFF(SECOND, created, resolved_at) / 3600)"
-            ])
-            ->where(['resolved_at IS NOT' => null])
-            ->first();
-
-        $avgResolutionHours = ($resolvedWithTime && $resolvedWithTime->avg_time !== null) ? round((float) $resolvedWithTime->avg_time, 1) : 0;
+        // Average resolution time
+        $avgResolutionTime = $this->getAvgResolutionTime('Pqrs', $baseQuery);
+        $avgResolutionHours = ($avgResolutionTime && $avgResolutionTime->avg_hours !== null)
+            ? round((float) $avgResolutionTime->avg_hours, 1)
+            : 0;
         $avgResolutionDays = $avgResolutionHours > 0 ? round($avgResolutionHours / 24, 1) : 0;
 
-        // Top 5 agents by resolved PQRS
-        $topAgents = $pqrsTable->find()
-            ->select([
-                'Assignees.id',
-                'Assignees.first_name',
-                'Assignees.last_name',
-                'count' => 'COUNT(*)'
-            ])
-            ->contain(['Assignees'])
-            ->where([
-                'assignee_id IS NOT' => null,
-                'status IN' => ['resuelto', 'cerrado']
-            ])
-            ->group(['assignee_id', 'Assignees.id', 'Assignees.first_name', 'Assignees.last_name'])
-            ->orderBy(['count' => 'DESC'])
-            ->limit(5)
-            ->toArray();
+        // Top agents
+        $agentPerformance = $this->getAgentPerformance('Pqrs', ['resuelto', 'cerrado'], 5);
 
         return [
             'total_pqrs' => $totalPqrs,
@@ -412,13 +247,15 @@ class StatisticsService
             'status_counts' => $statusCounts,
             'type_counts' => $typeCounts,
             'priority_counts' => $priorityCounts,
+            'channel_counts' => $channelCounts,
             'recent_pqrs' => $recentPqrs,
             'resolved_in_period' => $resolvedInPeriod,
             'avg_resolution_days' => $avgResolutionDays,
             'avg_resolution_hours' => $avgResolutionHours,
-            'top_agents' => $topAgents,
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
+            'top_agents' => $agentPerformance['top_agents'],
+            'active_agents_count' => $agentPerformance['active_agents_count'],
+            'date_from' => $parsedFilters['start_date'],
+            'date_to' => $parsedFilters['end_date'],
         ];
     }
 
@@ -430,37 +267,192 @@ class StatisticsService
      */
     public function getPqrsTrendData(int $days = 30): array
     {
-        $pqrsTable = $this->fetchTable('Pqrs');
+        return $this->getTrendData('Pqrs', $days);
+    }
 
-        // PQRS created per day for chart
-        $dailyStats = $pqrsTable->find()
-            ->select([
-                'date' => 'DATE(created)',
-                'count' => 'COUNT(*)'
-            ])
-            ->where(['created >=' => date('Y-m-d', strtotime("-{$days} days"))])
-            ->group(['DATE(created)'])
-            ->orderBy(['date' => 'ASC'])
-            ->toArray();
+    /**
+     * Get Compras statistics (NEW)
+     *
+     * @param array $filters Optional filters (date_range, start_date, end_date)
+     * @return array Compras statistics data
+     */
+    public function getComprasStats(array $filters = []): array
+    {
+        $parsedFilters = $this->parseDateFilters($filters);
 
-        // Create a map of dates to counts
-        $statsMap = [];
-        foreach ($dailyStats as $stat) {
-            $statsMap[$stat->date] = $stat->count;
+        // For Compras, default to last 30 days if 'all' is selected
+        if ($parsedFilters['date_range'] === 'all' || $parsedFilters['date_range'] === '30days') {
+            $parsedFilters['start_date'] = date('Y-m-d', strtotime('-30 days'));
+            $parsedFilters['end_date'] = date('Y-m-d');
         }
 
-        // Generate complete range with zeros for missing days
-        $chartLabels = [];
-        $chartData = [];
-        for ($i = $days - 1; $i >= 0; $i--) {
-            $date = date('Y-m-d', strtotime("-$i days"));
-            $chartLabels[] = date('d/m', strtotime($date));
-            $chartData[] = isset($statsMap[$date]) ? $statsMap[$date] : 0;
-        }
+        $baseQuery = $this->buildBaseQuery('Compras', $parsedFilters);
+
+        // Use trait methods
+        $statusCounts = $this->getStatusDistribution(
+            'Compras',
+            ['nuevo', 'en_revision', 'aprobado', 'en_proceso', 'completado', 'rechazado', 'convertido'],
+            $baseQuery
+        );
+
+        $priorityCounts = $this->getPriorityDistribution('Compras', $baseQuery);
+        $channelCounts = $this->getChannelDistribution('Compras', $baseQuery);
+
+        $totalCompras = array_sum($statusCounts);
+        $unassignedCompras = $this->getUnassignedCount('Compras');
+        $recentCompras = $this->getRecentActivityCount('Compras');
+
+        // Average resolution time
+        $avgResolutionTime = $this->getAvgResolutionTime('Compras', $baseQuery);
+        $avgResolutionHours = ($avgResolutionTime && $avgResolutionTime->avg_hours !== null)
+            ? round((float) $avgResolutionTime->avg_hours, 1)
+            : 0;
+        $avgResolutionDays = $avgResolutionHours > 0 ? round($avgResolutionHours / 24, 1) : 0;
+
+        // Agent performance (by completed compras)
+        $agentPerformance = $this->getAgentPerformance('Compras', ['completado'], 5);
+
+        // Compras-specific metrics
+        $slaMetrics = $this->getSLAMetrics($baseQuery);
+        $approvalMetrics = $this->getApprovalMetrics($baseQuery);
 
         return [
-            'chart_labels' => $chartLabels,
-            'chart_data' => $chartData,
+            'total_compras' => $totalCompras,
+            'status_counts' => $statusCounts,
+            'priority_counts' => $priorityCounts,
+            'channel_counts' => $channelCounts,
+            'unassigned_compras' => $unassignedCompras,
+            'recent_compras' => $recentCompras,
+            'avg_resolution_hours' => $avgResolutionHours,
+            'avg_resolution_days' => $avgResolutionDays,
+            'top_agents' => $agentPerformance['top_agents'],
+            'active_agents_count' => $agentPerformance['active_agents_count'],
+            'sla_metrics' => $slaMetrics,
+            'approval_metrics' => $approvalMetrics,
+            'date_from' => $parsedFilters['start_date'],
+            'date_to' => $parsedFilters['end_date'],
+        ];
+    }
+
+    /**
+     * Get Compras trend data for charts (NEW)
+     *
+     * @param int $days Number of days to include
+     * @return array Chart data
+     */
+    public function getComprasTrendData(int $days = 30): array
+    {
+        return $this->getTrendData('Compras', $days);
+    }
+
+    // ==================== PRIVATE MODULE-SPECIFIC METHODS ====================
+
+    /**
+     * Get type distribution (PQRS-specific)
+     *
+     * @return array Type => count mapping
+     */
+    private function getTypeDistribution(): array
+    {
+        $pqrsTable = $this->fetchTable('Pqrs');
+
+        $typeCountsRaw = $pqrsTable->find()
+            ->select(['type', 'count' => $pqrsTable->find()->func()->count('*')])
+            ->group(['type'])
+            ->all()
+            ->combine('type', 'count')
+            ->toArray();
+
+        return [
+            'peticion' => $typeCountsRaw['peticion'] ?? 0,
+            'queja' => $typeCountsRaw['queja'] ?? 0,
+            'reclamo' => $typeCountsRaw['reclamo'] ?? 0,
+            'sugerencia' => $typeCountsRaw['sugerencia'] ?? 0,
+        ];
+    }
+
+    /**
+     * Get SLA metrics (Compras-specific)
+     *
+     * @param \Cake\ORM\Query $baseQuery Base query with filters applied
+     * @return array SLA metrics
+     */
+    private function getSLAMetrics($baseQuery): array
+    {
+        $now = new \DateTime();
+
+        // SLA breached count (past deadline and not completed/rejected/converted)
+        $breachedQuery = clone $baseQuery;
+        $breachedCount = $breachedQuery
+            ->where([
+                'sla_due_date <' => $now,
+                'status NOT IN' => ['completado', 'rechazado', 'convertido']
+            ])
+            ->count();
+
+        // SLA at risk (< 24 hours remaining)
+        $atRiskQuery = clone $baseQuery;
+        $tomorrow = (new \DateTime())->modify('+24 hours');
+        $atRiskCount = $atRiskQuery
+            ->where([
+                'sla_due_date >=' => $now,
+                'sla_due_date <' => $tomorrow,
+                'status NOT IN' => ['completado', 'rechazado', 'convertido']
+            ])
+            ->count();
+
+        // Total with active SLA
+        $activeSLAQuery = clone $baseQuery;
+        $activeSLACount = $activeSLAQuery
+            ->where(['status NOT IN' => ['completado', 'rechazado', 'convertido']])
+            ->count();
+
+        // Compliance rate
+        $complianceRate = $activeSLACount > 0
+            ? round((($activeSLACount - $breachedCount) / $activeSLACount) * 100, 1)
+            : 100.0;
+
+        return [
+            'breached_count' => $breachedCount,
+            'at_risk_count' => $atRiskCount,
+            'active_count' => $activeSLACount,
+            'compliance_rate' => $complianceRate,
+        ];
+    }
+
+    /**
+     * Get approval metrics (Compras-specific)
+     *
+     * @param \Cake\ORM\Query $baseQuery Base query with filters applied
+     * @return array Approval metrics
+     */
+    private function getApprovalMetrics($baseQuery): array
+    {
+        // Approved count (aprobado + en_proceso + completado)
+        $approvedQuery = clone $baseQuery;
+        $approvedCount = $approvedQuery
+            ->where(['status IN' => ['aprobado', 'en_proceso', 'completado']])
+            ->count();
+
+        // Rejected count
+        $rejectedQuery = clone $baseQuery;
+        $rejectedCount = $rejectedQuery
+            ->where(['status' => 'rechazado'])
+            ->count();
+
+        // Total decided (approved + rejected)
+        $totalDecided = $approvedCount + $rejectedCount;
+
+        // Approval rate
+        $approvalRate = $totalDecided > 0
+            ? round(($approvedCount / $totalDecided) * 100, 1)
+            : 0.0;
+
+        return [
+            'approved_count' => $approvedCount,
+            'rejected_count' => $rejectedCount,
+            'total_decided' => $totalDecided,
+            'approval_rate' => $approvalRate,
         ];
     }
 }

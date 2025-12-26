@@ -1,30 +1,28 @@
 <?php
 /**
- * PQRS Statistics Template
+ * Compras Statistics Template
  *
  * @var \App\View\AppView $this
  * @var int $total
  * @var int $recentCount
  * @var int $unassignedCount
  * @var int $activeAgentsCount
- * @var int $totalResolved
- * @var int $totalPending
- * @var int $resolvedInPeriod
  * @var array $statusDistribution
  * @var array $priorityDistribution
- * @var array $typeDistribution
  * @var array $channelDistribution
  * @var array $chartLabels
  * @var array $chartData
  * @var float $avgResolutionDays
  * @var float $avgResolutionHours
  * @var array $topAgents
+ * @var array $slaMetrics
+ * @var array $approvalMetrics
  * @var array $filters
  * @var string|null $dateFrom
  * @var string|null $dateTo
  */
 
-$this->assign('title', 'Estadísticas de PQRS');
+$this->assign('title', 'Estadísticas de Compras');
 ?>
 
 <!-- Include Chart.js -->
@@ -34,8 +32,8 @@ $this->assign('title', 'Estadísticas de PQRS');
 <div class="py-4 px-5" style="max-width: 1100px; margin: 0 auto; width: 100%;">
     <!-- Header -->
     <div class="mb-5">
-        <h2 class="fw-normal"><i class="bi bi-bar-chart me-2 text-success"></i>Estadísticas PQRS</h2>
-        <p class="text-muted fw-light">Vista general del sistema de peticiones, quejas, reclamos y sugerencias</p>
+        <h2 class="fw-normal"><i class="bi bi-bar-chart me-2 text-success"></i>Estadísticas de Compras</h2>
+        <p class="text-muted fw-light">Vista general del sistema de gestión de compras</p>
     </div>
 
     <!-- Date Range Filter (commented out for now) -->
@@ -44,44 +42,34 @@ $this->assign('title', 'Estadísticas de PQRS');
         'action' => 'statistics'
     ]) ?> -->
 
-    <!-- KPI Cards -->
+    <!-- KPI Cards (includes SLA compliance in 4th card) -->
     <?= $this->element('shared/statistics/kpi_cards', [
         'total' => $total,
         'recentCount' => $recentCount,
         'unassignedCount' => $unassignedCount,
         'activeAgentsCount' => $activeAgentsCount,
-        'entityType' => 'pqrs',
-        'slaMetrics' => null
+        'entityType' => 'compra',
+        'slaMetrics' => $slaMetrics
     ]) ?>
 
-    <!-- Secondary KPIs -->
+    <!-- SLA Metrics - PROMINENT DISPLAY (per user request) -->
+    <?= $this->element('shared/statistics/sla_metrics', [
+        'slaMetrics' => $slaMetrics
+    ]) ?>
+
+    <!-- Approval Metrics -->
+    <?= $this->element('shared/statistics/approval_metrics', [
+        'approvalMetrics' => $approvalMetrics
+    ]) ?>
+
+    <!-- Performance Metric -->
     <div class="row mb-5">
-        <div class="col-md-4">
+        <div class="col-md-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-body text-center">
-                    <i class="bi bi-check-circle text-success" style="font-size: 2.5rem;"></i>
-                    <h3 class="mt-2 mb-0"><?= number_format($totalResolved) ?></h3>
-                    <p class="text-muted mb-0 fw-light">Total Resueltos</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body text-center">
-                    <i class="bi bi-hourglass-split text-warning" style="font-size: 2.5rem;"></i>
-                    <h3 class="mt-2 mb-0"><?= number_format($totalPending) ?></h3>
-                    <p class="text-muted mb-0 fw-light">Pendientes</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body text-center">
-                    <i class="bi bi-clock-history text-info" style="font-size: 2.5rem;"></i>
+                    <i class="bi bi-speedometer text-primary" style="font-size: 2.5rem;"></i>
                     <h3 class="mt-2 mb-0"><?= $avgResolutionDays ?> días</h3>
-                    <p class="text-muted mb-0 fw-light">Tiempo Prom. Resolución</p>
+                    <p class="text-muted mb-0 fw-light">Tiempo Promedio de Resolución</p>
                     <small class="text-muted">(<?= $avgResolutionHours ?> horas)</small>
                 </div>
             </div>
@@ -94,7 +82,7 @@ $this->assign('title', 'Estadísticas de PQRS');
         <div class="col-md-4">
             <?= $this->element('shared/statistics/status_chart', [
                 'statusDistribution' => $statusDistribution,
-                'entityType' => 'pqrs'
+                'entityType' => 'compra'
             ]) ?>
         </div>
 
@@ -102,14 +90,14 @@ $this->assign('title', 'Estadísticas de PQRS');
         <div class="col-md-4">
             <?= $this->element('shared/statistics/priority_chart', [
                 'priorityDistribution' => $priorityDistribution,
-                'entityType' => 'pqrs'
+                'entityType' => 'compra'
             ]) ?>
         </div>
 
-        <!-- Type Distribution (PQRS-specific) -->
+        <!-- Channel Distribution -->
         <div class="col-md-4">
-            <?= $this->element('shared/statistics/type_distribution', [
-                'typeDistribution' => $typeDistribution
+            <?= $this->element('shared/statistics/channel_distribution', [
+                'channelDistribution' => $channelDistribution
             ]) ?>
         </div>
     </div>
@@ -118,23 +106,15 @@ $this->assign('title', 'Estadísticas de PQRS');
     <?= $this->element('shared/statistics/trend_chart', [
         'chartLabels' => $chartLabels,
         'chartData' => $chartData,
-        'entityType' => 'pqrs'
+        'entityType' => 'compra'
     ]) ?>
 
-    <!-- Tables Row -->
+    <!-- Agent Performance Table -->
     <div class="row">
-        <!-- Top Agents -->
-        <div class="col-md-6">
+        <div class="col-md-12">
             <?= $this->element('shared/statistics/agent_performance_table', [
                 'topAgents' => $topAgents,
-                'entityType' => 'pqrs'
-            ]) ?>
-        </div>
-
-        <!-- Channel Distribution -->
-        <div class="col-md-6">
-            <?= $this->element('shared/statistics/channel_distribution', [
-                'channelDistribution' => $channelDistribution
+                'entityType' => 'compra'
             ]) ?>
         </div>
     </div>

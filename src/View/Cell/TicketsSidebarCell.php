@@ -96,6 +96,9 @@ class TicketsSidebarCell extends Cell
             'resueltos' => (clone $baseQuery)
                 ->where(['status' => 'resuelto'])
                 ->count(),
+            'convertidos' => (clone $baseQuery)
+                ->where(['status' => 'convertido'])
+                ->count(),
         ];
 
         // Add "mis_tickets" count for agents and compras

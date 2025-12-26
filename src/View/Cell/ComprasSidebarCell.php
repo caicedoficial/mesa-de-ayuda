@@ -44,7 +44,7 @@ class ComprasSidebarCell extends Cell
         // Calculate counts from grouped results
         $counts = [
             'sin_asignar' => $comprasTable->find()
-                ->where(['assignee_id IS' => null, 'status NOT IN' => ['completado', 'rechazado']])
+                ->where(['assignee_id IS' => null, 'status NOT IN' => ['completado', 'rechazado', 'convertido']])
                 ->count(),
             'todos_sin_resolver' => ($statusCounts['nuevo'] ?? 0) + ($statusCounts['en_revision'] ?? 0) + ($statusCounts['aprobado'] ?? 0) + ($statusCounts['en_proceso'] ?? 0),
             'nuevos' => $statusCounts['nuevo'] ?? 0,
@@ -53,12 +53,13 @@ class ComprasSidebarCell extends Cell
             'en_proceso' => $statusCounts['en_proceso'] ?? 0,
             'completados' => $statusCounts['completado'] ?? 0,
             'rechazados' => $statusCounts['rechazado'] ?? 0,
+            'convertidos' => $statusCounts['convertido'] ?? 0,
         ];
 
         // Add "mis_compras" count for compras and admin
         if (($userRole === 'compras' || $userRole === 'admin') && $userId) {
             $counts['mis_compras'] = $comprasTable->find()
-                ->where(['assignee_id' => $userId, 'status NOT IN' => ['completado', 'rechazado']])
+                ->where(['assignee_id' => $userId, 'status NOT IN' => ['completado', 'rechazado', 'convertido']])
                 ->count();
         }
 
@@ -67,7 +68,7 @@ class ComprasSidebarCell extends Cell
         $counts['vencidos_sla'] = $comprasTable->find()
             ->where([
                 'sla_due_date <' => $now,
-                'status NOT IN' => ['completado', 'rechazado'],
+                'status NOT IN' => ['completado', 'rechazado', 'convertido'],
             ])
             ->count();
 
