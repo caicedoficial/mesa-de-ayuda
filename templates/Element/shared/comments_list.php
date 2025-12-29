@@ -129,7 +129,7 @@ if ($entityType === 'ticket' || $entityType === 'compra') {
             </div>
         </div>
 
-        <div class="lh-base small p-3 rounded" style="background-color: rgba(31, 115, 183, 0.05);">
+        <div class="lh-base small p-3 rounded" style="background-color: rgba(31, 115, 183, 0.1);">
             <?php echo $description; ?>
         </div>
 
