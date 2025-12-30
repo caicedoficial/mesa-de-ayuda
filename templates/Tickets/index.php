@@ -119,7 +119,7 @@ $userId = $user ? $user->get('id') : null;
                                 $isDisabled = $this->Ticket->isAssignmentDisabled($user) || $isLocked;
                                 ?>
                                 <?= $this->Form->create(null, ['url' => ['action' => 'assign', $ticket->id], 'class' => 'table-assign-form']) ?>
-                                <?= $this->Form->select('agent_id', $agents, [
+                                <?= $this->Form->select('assignee_id', $agents, [
                                     'value' => $ticket->assignee_id,
                                     'empty' => 'Sin asignar',
                                     'class' => 'table-agent-select form-select form-select-sm',

@@ -70,6 +70,13 @@ class ComprasController extends AppController
     {
         $this->indexEntity('compra', [
             'paginationLimit' => 10,
+            'beforeQuery' => function($query) {
+                // Query is already built, we'll process SLA data after pagination
+                return $query;
+            },
+            'additionalViewVars' => [
+                'comprasService' => $this->comprasService,
+            ],
         ]);
     }
 

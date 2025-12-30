@@ -748,6 +748,11 @@ $this->assign('title', 'Configuración');
                 ['action' => 'tags'],
                 ['class' => 'quick-link-card', 'escapeTitle' => false]
             ) ?>
+            <?= $this->Html->link(
+                '<i class="bi bi-clock-history"></i><span>Gestión SLA</span>',
+                ['controller' => 'SlaManagement', 'action' => 'index'],
+                ['class' => 'quick-link-card', 'escapeTitle' => false]
+            ) ?>
         </div>
     </div>
 </div>

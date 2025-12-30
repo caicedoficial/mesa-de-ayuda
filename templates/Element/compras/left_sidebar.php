@@ -42,7 +42,7 @@
 
             <div class="mb-3">
                 <label class="small text-muted fw-semibold mb-1">SLA:</label>
-                <div><?= $this->Compras->slaIndicator($compra, true) ?></div>
+                <div><?= $this->Compras->dualSlaIndicator($compra) ?></div>
             </div>
         </section>
 

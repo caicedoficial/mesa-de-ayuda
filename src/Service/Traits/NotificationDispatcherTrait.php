@@ -101,7 +101,9 @@ trait NotificationDispatcherTrait
                 case 'comment':
                     $this->emailService->{$methods['email']}(
                         $entity,
-                        $context['comment'] ?? null
+                        $context['comment'] ?? null,
+                        $context['additional_to'] ?? [],
+                        $context['additional_cc'] ?? []
                     );
                     break;
 

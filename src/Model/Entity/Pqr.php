@@ -31,6 +31,8 @@ use Cake\ORM\Entity;
  * @property \Cake\I18n\DateTime|null $resolved_at
  * @property \Cake\I18n\DateTime|null $first_response_at
  * @property \Cake\I18n\DateTime|null $closed_at
+ * @property \Cake\I18n\DateTime|null $first_response_sla_due
+ * @property \Cake\I18n\DateTime|null $resolution_sla_due
  *
  * @property \App\Model\Entity\User $assignee
  * @property \App\Model\Entity\PqrsComment[] $pqrs_comments
@@ -67,6 +69,8 @@ class Pqr extends Entity
         'resolved_at' => true,
         'first_response_at' => true,
         'closed_at' => true,
+        'first_response_sla_due' => true,
+        'resolution_sla_due' => true,
         'assignee' => true,
         'pqrs_comments' => true,
         'pqrs_attachments' => true,

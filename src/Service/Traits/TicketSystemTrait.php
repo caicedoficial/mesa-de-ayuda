@@ -200,13 +200,19 @@ trait TicketSystemTrait
         $usersTable = $this->fetchTable('Users');
 
         $oldAssigneeId = $entity->assignee_id;
-        $entity->assignee_id = $assigneeId;
+
+        // Convert 0 to null for "unassigned" option
+        $entity->assignee_id = ($assigneeId === 0 || $assigneeId === '0') ? null : $assigneeId;
 
         if (!$table->save($entity)) {
-            Log::error('Failed to assign entity', [
-                'entity_id' => $entity->id,
-                'validation_errors' => $entity->getErrors()
-            ]);
+            $errors = $entity->getErrors();
+            $entityClass = get_class($entity);
+
+            Log::error("Failed to assign entity - Type: {$entityClass}, ID: {$entity->id}");
+            Log::error("Assignment details - New assignee: {$assigneeId}, Old assignee: {$oldAssigneeId}");
+            Log::error("Validation errors: " . print_r($errors, true));
+            Log::error("Dirty fields: " . print_r($entity->getDirty(), true));
+
             return false;
         }
 

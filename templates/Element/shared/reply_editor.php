@@ -209,12 +209,59 @@ $requesterEmail = in_array($entityType, ['ticket', 'compra'])
     (function() {
         'use strict';
 
-        // Only initialize with requester (who created the entity)
-        const initialToRecipients = [{
-            name: "<?= h($requesterName) ?>",
-            email: "<?= h($requesterEmail) ?>"
-        }];
+        // Build initial recipients including requester + original email_to recipients
+        const initialToRecipients = [
+            {
+                name: "<?= h($requesterName) ?>",
+                email: "<?= h($requesterEmail) ?>"
+            }
+        ];
+
+        // Add original email_to recipients if they exist (excluding system email)
+        <?php
+        $systemEmailAddr = strtolower($systemConfig['smtp_username'] ?? $systemConfig['gmail_user_email'] ?? '');
+        $emailToData = [];
+        if (!empty($entity->email_to)) {
+            $decoded = is_string($entity->email_to) ? json_decode($entity->email_to, true) : $entity->email_to;
+            if (is_array($decoded)) {
+                // Filter out system email
+                foreach ($decoded as $recipient) {
+                    if (!empty($recipient['email']) && strtolower($recipient['email']) !== $systemEmailAddr) {
+                        $emailToData[] = $recipient;
+                    }
+                }
+            }
+        }
+        ?>
+        <?php foreach ($emailToData as $recipient): ?>
+        initialToRecipients.push({
+            name: <?= json_encode($recipient['name'] ?? $recipient['email']) ?>,
+            email: <?= json_encode($recipient['email']) ?>
+        });
+        <?php endforeach; ?>
+
+        // Build CC recipients from original email_cc (excluding system email)
         const initialCcRecipients = [];
+        <?php
+        $emailCcData = [];
+        if (!empty($entity->email_cc)) {
+            $decoded = is_string($entity->email_cc) ? json_decode($entity->email_cc, true) : $entity->email_cc;
+            if (is_array($decoded)) {
+                // Filter out system email
+                foreach ($decoded as $recipient) {
+                    if (!empty($recipient['email']) && strtolower($recipient['email']) !== $systemEmailAddr) {
+                        $emailCcData[] = $recipient;
+                    }
+                }
+            }
+        }
+        ?>
+        <?php foreach ($emailCcData as $recipient): ?>
+        initialCcRecipients.push({
+            name: <?= json_encode($recipient['name'] ?? $recipient['email']) ?>,
+            email: <?= json_encode($recipient['email']) ?>
+        });
+        <?php endforeach; ?>
 
         // Pass system email to JavaScript for validation
         const systemEmail = "<?= h($systemConfig['smtp_username'] ?? '') ?>".toLowerCase();

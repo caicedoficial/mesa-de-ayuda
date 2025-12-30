@@ -99,15 +99,15 @@ class NotificationRenderer
             return '';
         }
 
-        $html = '<div>';
-        $html .= '<h4>Archivos Adjuntos</h4><ul>';
+        $html = '<td>';
+        $html .= '<p><strong>Archivos Adjuntos</strong></p><ul>';
 
         foreach ($attachments as $attachment) {
             $sizeKB = number_format($attachment->file_size / 1024, 1);
             $html .= "<li>{$attachment->original_filename} ({$sizeKB} KB)</li>";
         }
 
-        $html .= '</ul></div>';
+        $html .= '</ul>';
 
         return $html;
     }
@@ -125,15 +125,15 @@ class NotificationRenderer
         $oldLabel = $this->getStatusLabel($oldStatus);
         $newLabel = $this->getStatusLabel($newStatus);
 
-        return '<div class="status-change">' .
-            '<h3 style="margin-top: 0;">Cambio de Estado</h3>' .
+        return '<td>' .
+            '<p><strong>Cambio de Estado</strong></p>' .
             '<p>' .
             '<span class="status-badge status-' . $oldStatus . '">' . $oldLabel . '</span>' .
             '<span style="margin: 0 10px;">→</span>' .
             '<span class="status-badge status-' . $newStatus . '">' . $newLabel . '</span>' .
             '</p>' .
             '<p>Asignado a: <strong>' . $assigneeName . '</strong></p>' .
-            '</div>';
+            '</td>';
     }
 
     /**

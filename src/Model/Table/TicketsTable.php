@@ -174,7 +174,15 @@ class TicketsTable extends Table
         $rules->add($rules->isUnique(['ticket_number']), ['errorField' => 'ticket_number']);
         $rules->add($rules->isUnique(['gmail_message_id'], ['allowMultipleNulls' => true]), ['errorField' => 'gmail_message_id']);
         $rules->add($rules->existsIn(['requester_id'], 'Requesters'), ['errorField' => 'requester_id']);
-        $rules->add($rules->existsIn(['assignee_id'], 'Assignees'), ['errorField' => 'assignee_id']);
+
+        // Allow null assignee_id (unassigned tickets)
+        $rules->add(
+            $rules->existsIn(['assignee_id'], 'Assignees'),
+            [
+                'errorField' => 'assignee_id',
+                'allowNullableNulls' => true
+            ]
+        );
 
         return $rules;
     }

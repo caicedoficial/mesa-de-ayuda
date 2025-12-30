@@ -396,6 +396,23 @@ class GmailService
     }
 
     /**
+     * Encode email header with name for UTF-8 characters
+     *
+     * @param string $name Name
+     * @param string $email Email address
+     * @return string Encoded header value (e.g., "=?UTF-8?B?...?= <email@example.com>")
+     */
+    private function encodeEmailHeader(string $name, string $email): string
+    {
+        // If name contains non-ASCII characters, encode it
+        if (preg_match('/[^\x20-\x7E]/', $name)) {
+            return mb_encode_mimeheader($name, 'UTF-8') . " <{$email}>";
+        }
+
+        return "{$name} <{$email}>";
+    }
+
+    /**
      * Create MIME message for sending
      *
      * @param string|array $to Recipient(s)
@@ -414,7 +431,7 @@ class GmailService
                 // ['email' => 'name']
                 $fromEmail = array_keys($options['from'])[0];
                 $fromName = $options['from'][$fromEmail];
-                $message = "From: {$fromName} <{$fromEmail}>\r\n";
+                $message = "From: " . $this->encodeEmailHeader($fromName, $fromEmail) . "\r\n";
             } else {
                 $message = "From: {$options['from']}\r\n";
             }
@@ -431,7 +448,7 @@ class GmailService
                     $toList[] = $name;
                 } else {
                     // Associative array ['email' => 'name']
-                    $toList[] = "{$name} <{$email}>";
+                    $toList[] = $this->encodeEmailHeader($name, $email);
                 }
             }
             $message .= "To: " . implode(', ', $toList) . "\r\n";
@@ -447,7 +464,7 @@ class GmailService
                     if (is_numeric($email)) {
                         $ccList[] = $name;
                     } else {
-                        $ccList[] = "{$name} <{$email}>";
+                        $ccList[] = $this->encodeEmailHeader($name, $email);
                     }
                 }
                 $message .= "Cc: " . implode(', ', $ccList) . "\r\n";
@@ -464,7 +481,7 @@ class GmailService
                     if (is_numeric($email)) {
                         $bccList[] = $name;
                     } else {
-                        $bccList[] = "{$name} <{$email}>";
+                        $bccList[] = $this->encodeEmailHeader($name, $email);
                     }
                 }
                 $message .= "Bcc: " . implode(', ', $bccList) . "\r\n";
@@ -478,7 +495,8 @@ class GmailService
             $message .= "Reply-To: {$options['replyTo']}\r\n";
         }
 
-        $message .= "Subject: {$subject}\r\n";
+        // Encode subject for UTF-8 characters (RFC 2047)
+        $message .= "Subject: " . mb_encode_mimeheader($subject, 'UTF-8') . "\r\n";
         $message .= "MIME-Version: 1.0\r\n";
         $message .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n\r\n";
 
@@ -492,12 +510,13 @@ class GmailService
         foreach ($attachments as $filePath) {
             if (file_exists($filePath)) {
                 $fileName = basename($filePath);
+                $encodedFileName = mb_encode_mimeheader($fileName, 'UTF-8');
                 $fileContent = file_get_contents($filePath);
                 $mimeType = mime_content_type($filePath);
 
                 $message .= "--{$boundary}\r\n";
-                $message .= "Content-Type: {$mimeType}; name=\"{$fileName}\"\r\n";
-                $message .= "Content-Disposition: attachment; filename=\"{$fileName}\"\r\n";
+                $message .= "Content-Type: {$mimeType}; name=\"{$encodedFileName}\"\r\n";
+                $message .= "Content-Disposition: attachment; filename=\"{$encodedFileName}\"\r\n";
                 $message .= "Content-Transfer-Encoding: base64\r\n\r\n";
                 $message .= chunk_split(base64_encode($fileContent)) . "\r\n";
             }

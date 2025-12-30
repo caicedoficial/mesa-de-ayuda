@@ -199,7 +199,15 @@ class PqrsTable extends Table
     public function buildRules(RulesChecker $rules): RulesChecker
     {
         $rules->add($rules->isUnique(['pqrs_number']), ['errorField' => 'pqrs_number']);
-        $rules->add($rules->existsIn(['assignee_id'], 'Assignees'), ['errorField' => 'assignee_id']);
+
+        // Allow null assignee_id (unassigned PQRS)
+        $rules->add(
+            $rules->existsIn(['assignee_id'], 'Assignees'),
+            [
+                'errorField' => 'assignee_id',
+                'allowNullableNulls' => true
+            ]
+        );
 
         return $rules;
     }

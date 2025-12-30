@@ -21,6 +21,7 @@ class ComprasService
 
     private EmailService $emailService;
     private WhatsappService $whatsappService;
+    private SlaManagementService $slaService;
     private ?array $systemConfig;
 
     public function __construct(?array $systemConfig = null)
@@ -28,6 +29,7 @@ class ComprasService
         $this->systemConfig = $systemConfig;
         $this->emailService = new EmailService($systemConfig);
         $this->whatsappService = new WhatsappService($systemConfig);
+        $this->slaService = new SlaManagementService();
     }
 
     /**
@@ -91,7 +93,9 @@ class ComprasService
 
         try {
             $compraNumber = $comprasTable->generateCompraNumber();
-            $slaDate = $this->calculateSLA();
+
+            // Calculate SLA deadlines using SlaManagementService
+            $slaDeadlines = $this->slaService->calculateComprasSlaDeadlines();
 
             $compra = $comprasTable->newEntity([
                 'compra_number' => $compraNumber,
@@ -105,7 +109,9 @@ class ComprasService
                 'channel' => $ticket->channel ?? 'email',
                 'email_to' => $ticket->email_to,  // Copy email recipients
                 'email_cc' => $ticket->email_cc,  // Copy CC recipients (managers, etc.)
-                'sla_due_date' => $slaDate,
+                'sla_due_date' => $slaDeadlines['resolution_sla_due'], // Legacy field
+                'first_response_sla_due' => $slaDeadlines['first_response_sla_due'],
+                'resolution_sla_due' => $slaDeadlines['resolution_sla_due'],
             ]);
 
             if ($comprasTable->save($compra)) {
@@ -188,30 +194,53 @@ class ComprasService
     }
 
     /**
-     * Calcula fecha de vencimiento de SLA
-     * SLA de Compras: created + 3 días
+     * Calcula fecha de vencimiento de SLA (DEPRECATED - Use SlaManagementService)
+     *
+     * @deprecated Use SlaManagementService::calculateComprasSlaDeadlines() instead
+     * @param Compra|null $compra Compra entity
+     * @return DateTime
      */
     public function calculateSLA(?Compra $compra = null): DateTime
     {
         $createdDate = $compra ? $compra->created : new DateTime();
-        return $createdDate->modify('+3 days');
+        $deadlines = $this->slaService->calculateComprasSlaDeadlines($createdDate);
+        return $deadlines['resolution_sla_due'];
     }
 
     /**
-     * Verifica si el SLA está vencido
+     * Verifica si el SLA de resolución está vencido
+     *
+     * @param Compra $compra Compra entity
+     * @return bool
      */
     public function isSLABreached(Compra $compra): bool
     {
-        if (in_array($compra->status, ['completado', 'rechazado'])) {
-            return false;
-        }
-
-        $now = new DateTime();
-        return $compra->sla_due_date && $now > $compra->sla_due_date;
+        return $this->slaService->isResolutionSlaBreached(
+            $compra->resolution_sla_due ?? $compra->sla_due_date,
+            $compra->resolved_at,
+            $compra->status
+        );
     }
 
     /**
-     * Obtiene compras con SLA vencido
+     * Verifica si el SLA de primera respuesta está vencido
+     *
+     * @param Compra $compra Compra entity
+     * @return bool
+     */
+    public function isFirstResponseSLABreached(Compra $compra): bool
+    {
+        return $this->slaService->isFirstResponseSlaBreached(
+            $compra->first_response_sla_due,
+            $compra->first_response_at,
+            $compra->status
+        );
+    }
+
+    /**
+     * Obtiene compras con SLA de resolución vencido
+     *
+     * @return array
      */
     public function getBreachedSLACompras(): array
     {
@@ -219,12 +248,37 @@ class ComprasService
 
         return $comprasTable->find()
             ->where([
-                'sla_due_date <' => new DateTime(),
+                'OR' => [
+                    'resolution_sla_due <' => new DateTime(),
+                    'sla_due_date <' => new DateTime(), // Legacy field support
+                ],
                 'status NOT IN' => ['completado', 'rechazado']
             ])
             ->contain(['Requesters', 'Assignees'])
-            ->order(['sla_due_date' => 'ASC'])
+            ->order(['resolution_sla_due' => 'ASC'])
             ->toArray();
+    }
+
+    /**
+     * Get SLA status information for a compra
+     *
+     * @param Compra $compra Compra entity
+     * @return array{first_response: array, resolution: array}
+     */
+    public function getSlaStatus(Compra $compra): array
+    {
+        return [
+            'first_response' => $this->slaService->getSlaStatus(
+                $compra->first_response_sla_due,
+                $compra->first_response_at,
+                $compra->status
+            ),
+            'resolution' => $this->slaService->getSlaStatus(
+                $compra->resolution_sla_due ?? $compra->sla_due_date,
+                $compra->resolved_at,
+                $compra->status
+            ),
+        ];
     }
 
     /**

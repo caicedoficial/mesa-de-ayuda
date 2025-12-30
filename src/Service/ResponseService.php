@@ -60,6 +60,14 @@ class ResponseService
         $emailTo = $this->decodeEmailRecipients($data['email_to'] ?? null);
         $emailCc = $this->decodeEmailRecipients($data['email_cc'] ?? null);
 
+        // DEBUG: Log recipients for troubleshooting
+        Log::debug('Response email recipients', [
+            'raw_email_to' => $data['email_to'] ?? null,
+            'raw_email_cc' => $data['email_cc'] ?? null,
+            'decoded_email_to' => $emailTo,
+            'decoded_email_cc' => $emailCc,
+        ]);
+
         $hasComment = !empty(trim($commentBody));
 
         // Get current entity to check status change
@@ -247,6 +255,8 @@ class ResponseService
         elseif ($hasPublicComment && $comment) {
             $this->dispatchUpdateNotifications($type, $entity, 'comment', [
                 'comment' => $comment,
+                'additional_to' => $emailTo,
+                'additional_cc' => $emailCc,
             ]);
         }
         // Case 3: Status Change only → Independent 'status_change' notification

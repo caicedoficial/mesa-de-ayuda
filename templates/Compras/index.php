@@ -127,7 +127,7 @@ $userId = $user ? $user->get('id') : null;
                                 $isDisabled = !in_array($userRole, ['admin', 'compras']) || $isLocked;
                                 ?>
                                 <?= $this->Form->create(null, ['url' => ['action' => 'assign', $compra->id], 'class' => 'table-assign-form']) ?>
-                                <?= $this->Form->select('agent_id', $comprasUsers, [
+                                <?= $this->Form->select('assignee_id', $comprasUsers, [
                                     'value' => $compra->assignee_id,
                                     'empty' => 'Sin asignar',
                                     'class' => 'table-agent-select form-select form-select-sm',

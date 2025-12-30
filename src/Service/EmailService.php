@@ -110,9 +110,11 @@ class EmailService
      *
      * @param \App\Model\Entity\Ticket $ticket Ticket entity
      * @param \App\Model\Entity\TicketComment $comment Comment entity
+     * @param array $additionalTo Additional To recipients
+     * @param array $additionalCc Additional CC recipients
      * @return bool Success status
      */
-    public function sendNewCommentNotification($ticket, $comment): bool
+    public function sendNewCommentNotification($ticket, $comment, array $additionalTo = [], array $additionalCc = []): bool
     {
         try {
             // Load entities with associations
@@ -163,8 +165,8 @@ class EmailService
             $subject = $this->replaceVariables($template->subject, $variables);
             $body = $this->replaceVariables($template->body_html, $variables);
 
-            // Send email to requester with attachments
-            return $this->sendEmail($ticket->requester->email, $subject, $body, $commentAttachments);
+            // Send email to requester with attachments and additional recipients
+            return $this->sendEmail($ticket->requester->email, $subject, $body, $commentAttachments, $additionalTo, $additionalCc);
         } catch (\Exception $e) {
             Log::error('Failed to send new comment notification', [
                 'ticket_id' => $ticket->id,
@@ -496,9 +498,11 @@ class EmailService
      *
      * @param \App\Model\Entity\Pqr $pqrs PQRS entity
      * @param \App\Model\Entity\PqrsComment $comment Comment entity
+     * @param array $additionalTo Additional To recipients
+     * @param array $additionalCc Additional CC recipients
      * @return bool Success status
      */
-    public function sendPqrsNewCommentNotification($pqrs, $comment): bool
+    public function sendPqrsNewCommentNotification($pqrs, $comment, array $additionalTo = [], array $additionalCc = []): bool
     {
         try {
             // Only send for public comments
@@ -565,8 +569,8 @@ class EmailService
                 $author,
             ], $template->body_html);
 
-            // Send email to requester with attachments
-            return $this->sendEmail($pqrs->requester_email, $subject, $body, $commentAttachments);
+            // Send email to requester with attachments and additional recipients
+            return $this->sendEmail($pqrs->requester_email, $subject, $body, $commentAttachments, $additionalTo, $additionalCc);
         } catch (\Exception $e) {
             Log::error('Failed to send PQRS comment notification', [
                 'pqrs_id' => $pqrs->id,
@@ -729,9 +733,11 @@ class EmailService
      *
      * @param \App\Model\Entity\Compra $compra Compra entity
      * @param \App\Model\Entity\ComprasComment $comment Comment entity
+     * @param array $additionalTo Additional To recipients
+     * @param array $additionalCc Additional CC recipients
      * @return bool Success status
      */
-    public function sendCompraCommentNotification($compra, $comment): bool
+    public function sendCompraCommentNotification($compra, $comment, array $additionalTo = [], array $additionalCc = []): bool
     {
         try {
             // Only send for public comments
@@ -791,8 +797,8 @@ class EmailService
             $subject = $this->replaceVariables($template->subject, $variables);
             $body = $this->replaceVariables($template->body_html, $variables);
 
-            // Send email to requester with attachments
-            return $this->sendEmail($compra->requester->email, $subject, $body, $commentAttachments);
+            // Send email to requester with attachments and additional recipients
+            return $this->sendEmail($compra->requester->email, $subject, $body, $commentAttachments, $additionalTo, $additionalCc);
         } catch (\Exception $e) {
             Log::error('Failed to send compra comment notification', [
                 'compra_id' => $compra->id,

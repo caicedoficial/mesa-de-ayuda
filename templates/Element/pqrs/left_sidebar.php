@@ -45,9 +45,14 @@
                 <?php endif; ?>
             </div>
 
-            <div>
+            <div class="mb-3">
                 <label class="small text-muted text-muted fw-semibold">Canal:</label>
                 <div class="small text-uppercase"><?= h($pqrs->channel) ?></div>
+            </div>
+
+            <div class="mb-3">
+                <label class="small text-muted fw-semibold mb-1">SLA:</label>
+                <div><?= $this->Pqrs->dualSlaIndicator($pqrs) ?></div>
             </div>
         </section>
 

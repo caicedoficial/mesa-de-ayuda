@@ -13,6 +13,8 @@
         language: 'es',
         placeholder: 'Sin asignar',
         allowClear: true,
+        minimumResultsForSearch: 10, // Show search only if 10+ options
+        dropdownAutoWidth: false,
     };
 
     // Inicializar Select2 cuando el documento esté listo

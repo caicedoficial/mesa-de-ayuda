@@ -28,6 +28,7 @@ class PqrsService
 
     private EmailService $emailService;
     private WhatsappService $whatsappService;
+    private SlaManagementService $slaService;
 
     /**
      * Constructor
@@ -38,6 +39,7 @@ class PqrsService
     {
         $this->emailService = new EmailService($systemConfig);
         $this->whatsappService = new WhatsappService($systemConfig);
+        $this->slaService = new SlaManagementService();
     }
 
     /**
@@ -54,18 +56,26 @@ class PqrsService
         // Generate PQRS number
         $pqrsNumber = $pqrsTable->generatePqrsNumber();
 
+        // Determine PQRS type
+        $type = $formData['type'] ?? 'peticion';
+
+        // Calculate SLA deadlines based on type
+        $slaDeadlines = $this->slaService->calculatePqrsSlaDeadlines($type);
+
         // Create PQRS entity
         $pqrs = $pqrsTable->newEntity([
             'pqrs_number' => $pqrsNumber,
             'requester_name' => $formData['requester_name'] ?? '',
             'requester_email' => $formData['requester_email'] ?? '',
             'requester_phone' => $formData['requester_phone'] ?? null,
-            'type' => $formData['type'] ?? 'peticion',
+            'type' => $type,
             'subject' => $formData['subject'] ?? '',
             'description' => $formData['description'] ?? '',
             'status' => 'nuevo',
             'priority' => $formData['priority'] ?? 'media',
             'channel' => 'web',
+            'first_response_sla_due' => $slaDeadlines['first_response_sla_due'],
+            'resolution_sla_due' => $slaDeadlines['resolution_sla_due'],
         ]);
         assert($pqrs instanceof \App\Model\Entity\Pqr);
 
@@ -112,5 +122,75 @@ class PqrsService
         $result = $this->saveGenericUploadedFile('pqrs', $pqrs, $file, $commentId, $userId);
         assert($result instanceof \App\Model\Entity\PqrsAttachment || $result === null);
         return $result;
+    }
+
+    /**
+     * Verifica si el SLA de primera respuesta está vencido
+     *
+     * @param \App\Model\Entity\Pqr $pqrs PQRS entity
+     * @return bool
+     */
+    public function isFirstResponseSLABreached(\App\Model\Entity\Pqr $pqrs): bool
+    {
+        return $this->slaService->isFirstResponseSlaBreached(
+            $pqrs->first_response_sla_due,
+            $pqrs->first_response_at,
+            $pqrs->status
+        );
+    }
+
+    /**
+     * Verifica si el SLA de resolución está vencido
+     *
+     * @param \App\Model\Entity\Pqr $pqrs PQRS entity
+     * @return bool
+     */
+    public function isResolutionSLABreached(\App\Model\Entity\Pqr $pqrs): bool
+    {
+        return $this->slaService->isResolutionSlaBreached(
+            $pqrs->resolution_sla_due,
+            $pqrs->resolved_at,
+            $pqrs->status
+        );
+    }
+
+    /**
+     * Get SLA status information for a PQRS
+     *
+     * @param \App\Model\Entity\Pqr $pqrs PQRS entity
+     * @return array{first_response: array, resolution: array}
+     */
+    public function getSlaStatus(\App\Model\Entity\Pqr $pqrs): array
+    {
+        return [
+            'first_response' => $this->slaService->getSlaStatus(
+                $pqrs->first_response_sla_due,
+                $pqrs->first_response_at,
+                $pqrs->status
+            ),
+            'resolution' => $this->slaService->getSlaStatus(
+                $pqrs->resolution_sla_due,
+                $pqrs->resolved_at,
+                $pqrs->status
+            ),
+        ];
+    }
+
+    /**
+     * Obtiene PQRS con SLA de resolución vencido
+     *
+     * @return array
+     */
+    public function getBreachedSLAPqrs(): array
+    {
+        $pqrsTable = $this->fetchTable('Pqrs');
+
+        return $pqrsTable->find()
+            ->where([
+                'resolution_sla_due <' => new \Cake\I18n\DateTime(),
+                'status NOT IN' => ['completado', 'cerrado', 'resuelto']
+            ])
+            ->order(['resolution_sla_due' => 'ASC'])
+            ->toArray();
     }
 }

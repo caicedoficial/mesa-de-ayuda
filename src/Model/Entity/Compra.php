@@ -25,6 +25,8 @@ use Cake\ORM\Entity;
  * @property \Cake\I18n\DateTime|null $modified
  * @property \Cake\I18n\DateTime|null $resolved_at
  * @property \Cake\I18n\DateTime|null $first_response_at
+ * @property \Cake\I18n\DateTime|null $first_response_sla_due
+ * @property \Cake\I18n\DateTime|null $resolution_sla_due
  *
  * @property \App\Model\Entity\User $requester
  * @property \App\Model\Entity\User $assignee
@@ -51,6 +53,8 @@ class Compra extends Entity
         'modified' => true,
         'resolved_at' => true,
         'first_response_at' => true,
+        'first_response_sla_due' => true,
+        'resolution_sla_due' => true,
         'requester' => true,
         'assignee' => true,
         'compras_comments' => true,

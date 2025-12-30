@@ -7,20 +7,7 @@
    FONT IMPORTS
    ============================================ */
 
-/* Fuente actual */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
-
-/* Opción 1: Outfit (Geométrica) - Círculos perfectos, moderna y amigable */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
-
-/* Opción 2: Plus Jakarta Sans (Humanista) - Cálida, redondeada, accesible */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-
-/* Opción 3: Manrope (Grotesca Moderna) - Refinada, alturas x generosas */
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
-
-/* Opción 4: Bricolage Grotesque (Personalidad Única) - Orgánica, distintiva */
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
 
 /* ============================================
    APLICACIÓN DE FUENTE GLOBAL
@@ -32,42 +19,9 @@
    var(--font-option-4)  → Bricolage Grotesque (única)
    ============================================ */
 * {
-    font-family: var(--font-option-3);
+    font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-optical-sizing: auto;
     font-style: normal;
-}
-
-:root {
-    /* Colores */
-    --bg-color: #F7F8FA;
-
-    /* ============================================
-       VARIABLES DE FUENTES
-       Cambia la fuente activa modificando solo UNA línea
-       ============================================ */
-
-    /* Fuente actual (DM Sans) */
-    --font-current: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-
-    /* OPCIÓN 1: Outfit - Geométrica perfecta */
-    /* Ideal para: Dashboards técnicos, números, métricas */
-    /* Personalidad: Moderna, precisa, amigable */
-    --font-option-1: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-
-    /* OPCIÓN 2: Plus Jakarta Sans - Humanista cálida */
-    /* Ideal para: Lectura prolongada, tablas, formularios */
-    /* Personalidad: Accesible, profesional, balanceada */
-    --font-option-2: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-
-    /* OPCIÓN 3: Manrope - Grotesca refinada */
-    /* Ideal para: Interfaces minimalistas, jerarquía tipográfica */
-    /* Personalidad: Refinada, técnica, elegante */
-    --font-option-3: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-
-    /* OPCIÓN 4: Bricolage Grotesque - Personalidad única */
-    /* Ideal para: Headers, CTAs, elementos destacados */
-    /* Personalidad: Distintiva, memorable, orgánica */
-    --font-option-4: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 body {
@@ -226,26 +180,283 @@ body {
 }
 
 /* ============================================
-   SELECT2 CUSTOM STYLES
+   SELECT2 CUSTOM STYLES - Refined Professional
    ============================================ */
 
-.select2-selection {
-    box-shadow: none !important;
-    font-size: 14px !important;
+/* Container & Selection Box */
+.select2-container--bootstrap-5 .select2-selection {
+    min-height: 38px;
+    border: 1.5px solid #dee2e6 !important;
     border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 500;
+    background-color: #ffffff;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
 }
 
+.select2-container--bootstrap-5 .select2-selection:hover {
+    border-color: #00A85E !important;
+    box-shadow: 0 2px 4px rgba(0, 168, 94, 0.08) !important;
+}
+
+/* Focus State - Refined Green Accent */
+.select2-container--bootstrap-5.select2-container--focus .select2-selection,
+.select2-container--bootstrap-5.select2-container--open .select2-selection {
+    border-color: #00A85E !important;
+    box-shadow: 0 0 0 3px rgba(0, 168, 94, 0.12),
+                0 2px 4px rgba(0, 0, 0, 0.06) !important;
+    outline: none;
+}
+
+/* Selected Value Text */
+.select2-container--bootstrap-5 .select2-selection__rendered {
+    color: #212529;
+    padding-left: 12px;
+    padding-right: 12px;
+    line-height: 36px;
+}
+
+.select2-container--bootstrap-5 .select2-selection__placeholder {
+    color: #6c757d;
+    font-weight: 400;
+}
+
+/* Arrow Indicator */
+.select2-container--bootstrap-5 .select2-selection__arrow {
+    height: 36px;
+    width: 36px;
+    right: 4px;
+}
+
+.select2-container--bootstrap-5 .select2-selection__arrow b {
+    border-color: #6c757d transparent transparent transparent;
+    border-width: 5px 4px 0 4px;
+    margin-left: -4px;
+    margin-top: -2px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.select2-container--bootstrap-5.select2-container--open .select2-selection__arrow b {
+    transform: rotate(180deg);
+    border-color: #00A85E transparent transparent transparent;
+}
+
+/* Dropdown Container */
+.select2-dropdown {
+    border: 1.5px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1),
+                0 2px 4px rgba(0, 0, 0, 0.06) !important;
+    margin-top: 4px;
+    animation: selectDropdownSlide 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes selectDropdownSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Results List */
+.select2-results {
+    background-color: #ffffff;
+}
+
+.select2-results__options {
+    max-height: 240px;
+    padding: 4px;
+}
+
+/* Individual Options */
 .select2-results__option {
     font-size: 14px !important;
-    border-radius: 0 !important;
+    padding: 10px 12px !important;
+    border-radius: 6px !important;
+    margin-bottom: 2px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    font-weight: 400;
 }
 
-.select2-dropdown, .select2-dropdown--below {
-    border-radius: 8px !important;
+/* Hover State */
+.select2-results__option--selectable:hover {
+    background-color: rgba(0, 168, 94, 0.08) !important;
+    color: #212529 !important;
 }
 
-.select2-search {
-    display: none !important;
+/* Highlighted State (keyboard navigation) */
+.select2-results__option--highlighted {
+    background-color: rgba(0, 168, 94, 0.12) !important;
+    color: #212529 !important;
+}
+
+/* Selected State */
+.select2-results__option--selected {
+    background-color: #00A85E !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+.select2-results__option--selected:hover {
+    background-color: #008f50 !important;
+}
+
+/* Disabled State */
+.select2-results__option--disabled {
+    color: #adb5bd !important;
+    cursor: not-allowed !important;
+    background-color: transparent !important;
+    opacity: 0.6;
+}
+
+.select2-container--bootstrap-5.select2-container--disabled .select2-selection {
+    background-color: #f8f9fa !important;
+    border-color: #dee2e6 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+}
+
+.select2-container--bootstrap-5.select2-container--disabled .select2-selection__rendered {
+    color: #6c757d;
+}
+
+/* Multi-Select Styles */
+.select2-container--bootstrap-5 .select2-selection--multiple {
+    min-height: 38px;
+    padding: 4px 8px;
+}
+
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__rendered {
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    line-height: normal;
+}
+
+/* Multi-Select Chosen Items (Tags) */
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice {
+    background-color: #00A85E !important;
+    border: none !important;
+    color: #ffffff !important;
+    border-radius: 6px !important;
+    padding: 4px 8px !important;
+    font-size: 13px !important;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 !important;
+    transition: all 0.15s ease;
+}
+
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice:hover {
+    background-color: #008f50 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 168, 94, 0.2);
+}
+
+/* Remove Button in Multi-Select */
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove {
+    color: #ffffff !important;
+    font-size: 16px !important;
+    font-weight: 700;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    opacity: 0.8;
+    transition: opacity 0.15s ease;
+    order: 2;
+}
+
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove:hover {
+    opacity: 1;
+    background: transparent !important;
+}
+
+.select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__display {
+    order: 1;
+}
+
+/* Search Input (when enabled) */
+.select2-search--dropdown {
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.select2-search--dropdown .select2-search__field {
+    border: 1.5px solid #dee2e6;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.select2-search--dropdown .select2-search__field:focus {
+    border-color: #00A85E;
+    box-shadow: 0 0 0 3px rgba(0, 168, 94, 0.12);
+}
+
+/* No Results Message */
+.select2-results__option.select2-results__message {
+    color: #6c757d;
+    text-align: center;
+    font-style: italic;
+    padding: 16px !important;
+}
+
+/* Loading State */
+.select2-results__option.loading-results {
+    text-align: center;
+    color: #6c757d;
+}
+
+/* Clear Selection Button */
+.select2-container--bootstrap-5 .select2-selection__clear {
+    color: #6c757d;
+    font-size: 18px;
+    font-weight: 700;
+    margin-right: 8px;
+    transition: color 0.15s ease;
+    cursor: pointer;
+}
+
+.select2-container--bootstrap-5 .select2-selection__clear:hover {
+    color: #CD6A15;
+}
+
+/* Scrollbar Styling for Dropdown */
+.select2-results__options::-webkit-scrollbar {
+    width: 6px;
+}
+
+.select2-results__options::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.select2-results__options::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+}
+
+.select2-results__options::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+/* Firefox Scrollbar */
+.select2-results__options {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
 
 /* ============================================
