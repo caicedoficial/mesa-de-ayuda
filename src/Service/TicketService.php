@@ -227,7 +227,7 @@ class TicketService
 
         // Process attachments if present using processEmailAttachments()
         if (!empty($emailData['attachments'])) {
-            $this->processEmailAttachments($ticket, $emailData['attachments'], $user->id);
+            $this->processEmailAttachments($ticket, $emailData['attachments'], $user->id, $comment->id);
         }
 
         // Do NOT send notifications (explicitly skip notification logic to prevent email loops)
@@ -345,9 +345,10 @@ class TicketService
      * @param \Cake\Datasource\EntityInterface $ticket Ticket entity
      * @param array $attachments Array of attachment data
      * @param int $userId User ID who uploaded
+     * @param int|null $commentId Optional comment ID to associate attachments with
      * @return void
      */
-    private function processEmailAttachments(\Cake\Datasource\EntityInterface $ticket, array $attachments, int $userId): void
+    private function processEmailAttachments(\Cake\Datasource\EntityInterface $ticket, array $attachments, int $userId, ?int $commentId = null): void
     {
         assert($ticket instanceof \App\Model\Entity\Ticket);
         $gmailService = new GmailService(GmailService::loadConfigFromDatabase());
@@ -372,7 +373,7 @@ class TicketService
                     $attachmentData['filename'],
                     $content,
                     $attachmentData['mime_type'],
-                    null,  // comment_id
+                    $commentId,
                     $userId
                 );
             } catch (\Exception $e) {
