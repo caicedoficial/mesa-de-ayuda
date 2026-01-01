@@ -467,6 +467,10 @@ class GmailService
      */
     private function encodeEmailHeader(string $name, string $email): string
     {
+        // Sanitize to prevent CRLF injection
+        $name = str_replace(["\r", "\n"], '', $name);
+        $email = str_replace(["\r", "\n"], '', $email);
+
         // If name contains non-ASCII characters, encode it
         if (preg_match('/[^\x20-\x7E]/', $name)) {
             return mb_encode_mimeheader($name, 'UTF-8') . " <{$email}>";
@@ -496,7 +500,8 @@ class GmailService
                 $fromName = $options['from'][$fromEmail];
                 $message = "From: " . $this->encodeEmailHeader($fromName, $fromEmail) . "\r\n";
             } else {
-                $message = "From: {$options['from']}\r\n";
+                $sanitizedFrom = str_replace(["\r", "\n"], '', (string)$options['from']);
+                $message = "From: {$sanitizedFrom}\r\n";
             }
         } else {
             $message = "";
@@ -508,7 +513,7 @@ class GmailService
             foreach ($to as $email => $name) {
                 if (is_numeric($email)) {
                     // Simple array of emails
-                    $toList[] = $name;
+                    $toList[] = str_replace(["\r", "\n"], '', $name);
                 } else {
                     // Associative array ['email' => 'name']
                     $toList[] = $this->encodeEmailHeader($name, $email);
@@ -516,7 +521,8 @@ class GmailService
             }
             $message .= "To: " . implode(', ', $toList) . "\r\n";
         } else {
-            $message .= "To: {$to}\r\n";
+            $sanitizedTo = str_replace(["\r", "\n"], '', (string)$to);
+            $message .= "To: {$sanitizedTo}\r\n";
         }
 
         // Build CC header
@@ -525,14 +531,15 @@ class GmailService
                 $ccList = [];
                 foreach ($options['cc'] as $email => $name) {
                     if (is_numeric($email)) {
-                        $ccList[] = $name;
+                        $ccList[] = str_replace(["\r", "\n"], '', $name);
                     } else {
                         $ccList[] = $this->encodeEmailHeader($name, $email);
                     }
                 }
                 $message .= "Cc: " . implode(', ', $ccList) . "\r\n";
             } else {
-                $message .= "Cc: {$options['cc']}\r\n";
+                $sanitizedCc = str_replace(["\r", "\n"], '', (string)$options['cc']);
+                $message .= "Cc: {$sanitizedCc}\r\n";
             }
         }
 
@@ -542,20 +549,22 @@ class GmailService
                 $bccList = [];
                 foreach ($options['bcc'] as $email => $name) {
                     if (is_numeric($email)) {
-                        $bccList[] = $name;
+                        $bccList[] = str_replace(["\r", "\n"], '', $name);
                     } else {
                         $bccList[] = $this->encodeEmailHeader($name, $email);
                     }
                 }
                 $message .= "Bcc: " . implode(', ', $bccList) . "\r\n";
             } else {
-                $message .= "Bcc: {$options['bcc']}\r\n";
+                $sanitizedBcc = str_replace(["\r", "\n"], '', (string)$options['bcc']);
+                $message .= "Bcc: {$sanitizedBcc}\r\n";
             }
         }
 
         // Reply-To header
         if (!empty($options['replyTo'])) {
-            $message .= "Reply-To: {$options['replyTo']}\r\n";
+            $sanitizedReplyTo = str_replace(["\r", "\n"], '', (string)$options['replyTo']);
+            $message .= "Reply-To: {$sanitizedReplyTo}\r\n";
         }
 
         // Custom headers
