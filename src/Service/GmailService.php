@@ -577,8 +577,9 @@ class GmailService
             }
         }
 
-        // Encode subject for UTF-8 characters (RFC 2047)
-        $message .= "Subject: " . mb_encode_mimeheader($subject, 'UTF-8') . "\r\n";
+        // Sanitize and encode subject for UTF-8 characters (RFC 2047)
+        $sanitizedSubject = str_replace(["\r", "\n"], '', $subject);
+        $message .= "Subject: " . mb_encode_mimeheader($sanitizedSubject, 'UTF-8') . "\r\n";
         $message .= "MIME-Version: 1.0\r\n";
         $message .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n\r\n";
 
@@ -592,7 +593,8 @@ class GmailService
         foreach ($attachments as $filePath) {
             if (file_exists($filePath)) {
                 $fileName = basename($filePath);
-                $encodedFileName = mb_encode_mimeheader($fileName, 'UTF-8');
+                $sanitizedFileName = str_replace(["\r", "\n"], '', $fileName);
+                $encodedFileName = mb_encode_mimeheader($sanitizedFileName, 'UTF-8');
                 $fileContent = file_get_contents($filePath);
                 $mimeType = mime_content_type($filePath);
 
