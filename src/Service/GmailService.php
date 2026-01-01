@@ -196,7 +196,8 @@ class GmailService
      * Parse Gmail message and extract relevant data
      *
      * @param string $messageId Gmail message ID
-     * @return array Parsed message data with keys: from, subject, body_html, body_text, attachments, inline_images
+     * @return array Parsed message data with keys: gmail_message_id, gmail_thread_id, from, to, subject, date,
+     *               email_to, email_cc, body_html, body_text, attachments, inline_images, is_auto_reply, is_system_notification
      */
     public function parseMessage(string $messageId): array
     {
