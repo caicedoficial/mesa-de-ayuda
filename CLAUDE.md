@@ -123,15 +123,55 @@ The three main modules (Tickets, Compras, PQRS) follow parallel structures:
 
 ### Gmail Integration Architecture
 
-The Gmail integration uses OAuth2 and maintains conversation threading:
+The Gmail integration uses OAuth2 and implements intelligent email threading to prevent duplicate tickets:
 
-1. **GmailService** handles API authentication and email fetching
-2. Emails are converted to tickets via `ImportGmailCommand` or on-demand
-3. **Thread tracking**: `gmail_thread_id` and `gmail_message_id` fields prevent duplicates
-4. Attachments are automatically downloaded and stored
-5. Email recipients are parsed and stored for context
+**Core Components:**
+1. **GmailService** - API authentication, email parsing, and filtering
+2. **TicketService** - Email-to-ticket/comment conversion with threading logic
+3. **ImportGmailCommand** - Automated email processing pipeline
 
-**Important**: When modifying Gmail integration, test with the `test_email` command first.
+**Email Threading (Added Jan 2026):**
+
+The system automatically converts email replies to existing tickets into comments instead of creating duplicate tickets.
+
+**Threading Logic (4-filter process):**
+1. **Auto-reply detection** - Skips out-of-office and automated responses
+2. **Notification detection** - Ignores responses to system notifications (prevents email loops)
+3. **Duplicate check** - Prevents reprocessing same `gmail_message_id`
+4. **Thread matching** - Checks `gmail_thread_id`:
+   - If thread exists → Creates comment via `createCommentFromEmail()`
+   - If new thread → Creates ticket via `createFromEmail()`
+
+**Security & Authorization:**
+- Only recipients in original To/CC can comment via email (recipient validation)
+- Unauthorized senders are rejected but email is marked read
+- All email headers sanitized to prevent CRLF injection attacks
+- Attachments validated against allowed file types before processing
+
+**Auto-Reply Detection:**
+Detects and filters automated responses using standard email headers:
+- `Auto-Submitted: auto-replied`
+- `X-Autoreply: yes`
+- `X-Autorespond: yes`
+- `Precedence: auto_reply` / `bulk` / `junk`
+
+**Notification Detection:**
+System notifications include custom header `X-Mesa-Ayuda-Notification: true` to identify and ignore responses.
+
+**Key Features:**
+- Email attachments properly associated with comments
+- Comments created via email do NOT trigger notifications (prevents infinite loops)
+- Closed tickets can receive comments without reopening
+- New users auto-created if sender is in original To/CC
+- Console output shows: Created tickets, Comments added, Skipped, Errors
+
+**Important Database Fields:**
+- `tickets.gmail_thread_id` - Groups related emails (threading key)
+- `tickets.gmail_message_id` - Unique message identifier (duplicate prevention)
+- `tickets.email_to` - Original To recipients (JSON array, used for authorization)
+- `tickets.email_cc` - Original CC recipients (JSON array, used for authorization)
+
+**Important**: When modifying Gmail integration, test with `bin/cake import_gmail` command first.
 
 ### n8n Automation Integration
 
