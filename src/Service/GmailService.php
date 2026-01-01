@@ -347,6 +347,47 @@ class GmailService
     }
 
     /**
+     * Detect if email is an auto-reply (out-of-office, auto-responder)
+     *
+     * Checks standard email headers that indicate automated responses:
+     * - Auto-Submitted: auto-replied, auto-generated
+     * - X-Autoreply: yes
+     * - X-Autorespond: yes
+     * - Precedence: bulk, list, junk
+     *
+     * @param array $headers Array of header objects from Gmail API
+     * @return bool True if auto-reply detected, false otherwise
+     */
+    public function isAutoReply(array $headers): bool
+    {
+        // Check Auto-Submitted header
+        $autoSubmitted = $this->getHeader($headers, 'Auto-Submitted');
+        if (stripos($autoSubmitted, 'auto-replied') !== false || stripos($autoSubmitted, 'auto-generated') !== false) {
+            return true;
+        }
+
+        // Check X-Autoreply header
+        $xAutoreply = $this->getHeader($headers, 'X-Autoreply');
+        if (stripos($xAutoreply, 'yes') !== false) {
+            return true;
+        }
+
+        // Check X-Autorespond header
+        $xAutorespond = $this->getHeader($headers, 'X-Autorespond');
+        if (stripos($xAutorespond, 'yes') !== false) {
+            return true;
+        }
+
+        // Check Precedence header
+        $precedence = $this->getHeader($headers, 'Precedence');
+        if (stripos($precedence, 'bulk') !== false || stripos($precedence, 'list') !== false || stripos($precedence, 'junk') !== false) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Send email via Gmail
      *
      * @param string $to Recipient email address
