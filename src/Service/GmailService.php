@@ -558,6 +558,13 @@ class GmailService
             $message .= "Reply-To: {$options['replyTo']}\r\n";
         }
 
+        // Custom headers
+        if (!empty($options['headers'])) {
+            foreach ($options['headers'] as $headerName => $headerValue) {
+                $message .= "{$headerName}: {$headerValue}\r\n";
+            }
+        }
+
         // Encode subject for UTF-8 characters (RFC 2047)
         $message .= "Subject: " . mb_encode_mimeheader($subject, 'UTF-8') . "\r\n";
         $message .= "MIME-Version: 1.0\r\n";
