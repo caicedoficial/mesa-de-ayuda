@@ -345,7 +345,7 @@ $this->assign('title', 'Plantillas de Email');
 
     <!-- Templates List -->
     <?php if (!empty($templates)): ?>
-        <div class="templates-list">
+        <div class="templates-list pb-3">
             <?php foreach ($templates as $template): ?>
                 <div class="template-card">
                     <div class="template-header">

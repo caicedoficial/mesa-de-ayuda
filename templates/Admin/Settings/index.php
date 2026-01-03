@@ -403,32 +403,6 @@ $this->assign('title', 'Configuración');
     font-size: 0.95rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .settings-page {
-        padding: 1rem;
-    }
-
-    .config-card {
-        padding: 1.5rem;
-    }
-
-    .btn-actions {
-        flex-direction: column;
-    }
-
-    .btn-primary,
-    .btn-warning,
-    .btn-danger,
-    .btn-outline {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .quick-links-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    }
-}
 </style>
 
 <div class="settings-page">
@@ -725,7 +699,7 @@ $this->assign('title', 'Configuración');
     </div>
 
     <!-- Quick Links -->
-    <div class="quick-links-section">
+    <div class="quick-links-section pb-3">
         <h3>Otras Opciones</h3>
         <div class="quick-links-grid">
             <?= $this->Html->link(

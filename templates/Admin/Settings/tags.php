@@ -29,7 +29,7 @@ $this->assign('title', 'Gestión de Etiquetas');
 
 .tags-page {
     padding: 2rem;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     animation: fadeIn 0.4s ease-out;
 }
@@ -120,7 +120,7 @@ $this->assign('title', 'Gestión de Etiquetas');
 /* Tags Grid */
 .tags-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
     gap: 1.5rem;
 }
 
@@ -349,7 +349,7 @@ $this->assign('title', 'Gestión de Etiquetas');
 
     <!-- Tags Grid -->
     <?php if (!empty($tags)): ?>
-        <div class="tags-grid">
+        <div class="tags-grid pb-3">
             <?php foreach ($tags as $tag): ?>
                 <div class="tag-card" style="--tag-color: <?= h($tag->color) ?>">
                     <div class="tag-header">

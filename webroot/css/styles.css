@@ -122,8 +122,8 @@ body {
 }
 
 .header-icon {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     background: linear-gradient(135deg, #E6F7F0 0%, #CCF0E1 100%);
     border: 2px solid var(--admin-green);
     border-radius: var(--radius-md);
@@ -139,7 +139,7 @@ body {
 }
 
 .header-text h3 {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--gray-900);
     margin: 0;

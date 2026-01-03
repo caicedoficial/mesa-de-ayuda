@@ -69,7 +69,7 @@ $userId = $user ? $user->get('id') : null;
 
     <?php if ($pqrs->count() > 0): ?>
         <div class="table-responsive table-scroll mb-auto">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover">
                 <thead class="bg-white" style="position: sticky; top: 0; z-index: 5;">
                     <tr>
                         <th class="w-fit pe-4 align-middle" style="width:36px">

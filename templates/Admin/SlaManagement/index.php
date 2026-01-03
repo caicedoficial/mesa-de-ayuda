@@ -578,7 +578,7 @@ $this->assign('title', 'Gestión de SLA');
     </div>
 
     <!-- Action Buttons -->
-    <div class="action-buttons">
+    <div class="action-buttons pb-3">
         <?= $this->Form->button('<i class="bi bi-check-circle-fill"></i> Guardar Configuración', [
             'type' => 'submit',
             'class' => 'btn btn-primary',

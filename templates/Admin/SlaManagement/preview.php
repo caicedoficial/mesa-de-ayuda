@@ -264,7 +264,7 @@ $this->assign('title', 'Vista Previa SLA');
     </div>
 
     <!-- Back Button -->
-    <div style="margin-top: 2rem;">
+    <div class="pb-3" style="margin-top: 2rem;">
         <a href="<?= $this->Url->build(['action' => 'index']) ?>" class="btn">
             <i class="bi bi-arrow-left"></i>
             Volver a Configuración SLA
