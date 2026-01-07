@@ -502,6 +502,80 @@ $this->assign('title', 'Configuración');
         <?php endif; ?>
     </div>
 
+    <!-- Gmail Client Secret Upload -->
+    <div class="config-card">
+        <div class="config-header">
+            <i class="bi bi-file-earmark-arrow-up text-primary"></i>
+            <h3>Archivo de Configuración de Gmail</h3>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>client_secret.json</strong> - Archivo de credenciales OAuth2 de Google.
+            <?php
+            $clientSecretPath = CONFIG . 'google' . DS . 'client_secret.json';
+            $fileExists = file_exists($clientSecretPath);
+            ?>
+            <?php if ($fileExists): ?>
+                <span class="badge bg-success">Archivo cargado</span>
+                <small class="d-block mt-2">Última modificación: <?= date('Y-m-d H:i:s', filemtime($clientSecretPath)) ?></small>
+            <?php else: ?>
+                <span class="badge bg-warning">No cargado</span>
+            <?php endif; ?>
+        </div>
+
+        <?= $this->Form->create(null, [
+            'url' => ['controller' => 'ConfigFiles', 'action' => 'upload', 'prefix' => 'Admin'],
+            'type' => 'file',
+            'class' => 'config-form'
+        ]) ?>
+            <?= $this->Form->hidden('file_type', ['value' => 'gmail']) ?>
+
+            <div class="form-group">
+                <?= $this->Form->label('config_file', 'Seleccionar archivo client_secret.json') ?>
+                <?= $this->Form->file('config_file', [
+                    'class' => 'form-control',
+                    'accept' => '.json',
+                    'required' => true
+                ]) ?>
+                <small class="form-text text-muted">
+                    Debe ser el archivo JSON descargado de Google Cloud Console
+                </small>
+            </div>
+
+            <div class="btn-actions">
+                <?= $this->Form->button('<i class="bi bi-upload"></i> Subir Archivo', [
+                    'type' => 'submit',
+                    'class' => 'btn-primary',
+                    'escapeTitle' => false
+                ]) ?>
+
+                <?php if ($fileExists): ?>
+                    <?= $this->Html->link('<i class="bi bi-download"></i> Descargar', [
+                        'controller' => 'ConfigFiles',
+                        'action' => 'download',
+                        'gmail',
+                        'prefix' => 'Admin'
+                    ], [
+                        'class' => 'btn-secondary',
+                        'escapeTitle' => false
+                    ]) ?>
+
+                    <?= $this->Form->postLink('<i class="bi bi-trash"></i> Eliminar', [
+                        'controller' => 'ConfigFiles',
+                        'action' => 'delete',
+                        'gmail',
+                        'prefix' => 'Admin'
+                    ], [
+                        'class' => 'btn-danger',
+                        'escapeTitle' => false,
+                        'confirm' => '¿Estás seguro de eliminar el archivo de configuración de Gmail?'
+                    ]) ?>
+                <?php endif; ?>
+            </div>
+        <?= $this->Form->end() ?>
+    </div>
+
     <!-- WhatsApp Configuration -->
     <div class="config-card">
         <div class="config-header">
