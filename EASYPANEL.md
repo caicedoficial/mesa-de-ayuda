@@ -21,16 +21,29 @@ Guía rápida para desplegar Mesa de Ayuda en Easypanel.
 - **Port**: `80` (importante!)
 - **Dockerfile Path**: `./Dockerfile`
 
+**En Domains:**
+- ⚠️ **IMPORTANTE**: Configura un dominio con HTTPS habilitado
+- Gmail OAuth requiere HTTPS para funcionar
+- Easypanel proporciona certificados SSL automáticamente con Let's Encrypt
+
 **En Environment Variables:**
 ```env
 APP_ENV=production
 DEBUG=false
+
+# Database
 DB_HOST=tu-servidor-mysql
 DB_PORT=3306
 DB_DATABASE=mesadeayuda
 DB_USERNAME=usuario
 DB_PASSWORD=contraseña
+
+# Security
 SECURITY_SALT=tu-salt-aleatorio
+
+# HTTPS Configuration (requerido para Gmail OAuth)
+TRUST_PROXY=true
+# Opcional: FULL_BASE_URL=https://tudominio.com
 ```
 
 ### 2. Deploy desde GitHub
