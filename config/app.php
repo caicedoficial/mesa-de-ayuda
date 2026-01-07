@@ -299,10 +299,10 @@ return [
             'persistent' => false,
             'timezone' => 'America/Bogota',
 
-            'host' => 'localhost',
-            'username' => 'root',
-            'password' => '',
-            'database' => 'soporte',
+            'host' => env('DB_HOST'),
+            'username' => env('DB_USERNAME'),
+            'password' => env('DB_PASSWORD'),
+            'database' => env('DB_DATABASE'),
 
             /*
              * For MariaDB/MySQL the internal default changed from utf8 to utf8mb4, aka full utf-8 support
