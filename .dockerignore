@@ -47,12 +47,12 @@ vendor/bin/phpstan
 Thumbs.db
 desktop.ini
 
-# Docker files (don't copy docker configs into image)
+# Docker files (don't copy docker compose files into image)
 docker-compose.yml
 docker-compose.prod.yml
 docker-compose.*.yml
-Dockerfile
-docker/
+docker/web/Dockerfile
+docker/scripts/
 
 # Uploads (will be mounted as volume)
 webroot/uploads/*
