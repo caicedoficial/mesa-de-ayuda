@@ -875,7 +875,7 @@
 
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="requester-id-number" class="form-label">Cédula/DNI/ID</label>
+                            <label for="requester-id-number" class="form-label">Cédula/DNI/NIT</label>
                             <?= $this->Form->text('requester_id_number', [
                                 'class' => 'form-input',
                                 'id' => 'requester-id-number',

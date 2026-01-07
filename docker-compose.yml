@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # PHP-FPM Application
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+    container_name: mesadeayuda_web
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - DEBUG=${DEBUG:-true}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-mesadeayuda}
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD}
+    networks:
+      - mesadeayuda_network
+
+  # Nginx Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: mesadeayuda_nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8765}:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./logs:/var/log/nginx
+    networks:
+      - mesadeayuda_network
+    depends_on:
+      - web
+
+  # Gmail Import Worker
+  worker:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+    container_name: mesadeayuda_worker
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php bin/cake.php gmail_worker
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - DEBUG=${DEBUG:-false}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-mesadeayuda}
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - WORKER_ENABLED=${WORKER_ENABLED:-true}
+    networks:
+      - mesadeayuda_network
+    depends_on:
+      - web
+
+networks:
+  mesadeayuda_network:
+    driver: bridge

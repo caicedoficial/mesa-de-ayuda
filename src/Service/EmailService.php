@@ -156,11 +156,10 @@ class EmailService
         $ticketsTable = $this->fetchTable('Tickets');
         $ticket = $ticketsTable->get($ticket->id, contain: ['Requesters', 'Assignees']);
 
+        $assigneeName = $ticket->assignee ? $ticket->assignee->name : 'No asignado';
+
         return $this->sendGenericTemplateEmail('ticket', 'ticket_estado', $ticket, [
-            'old_status' => $this->renderer->getStatusLabel($oldStatus),
-            'new_status' => $this->renderer->getStatusLabel($newStatus),
-            'assignee_name' => $ticket->assignee ? $ticket->assignee->name : 'No asignado',
-            'updated_date' => $this->renderer->formatDate($ticket->modified),
+            'status_change_section' => $this->renderer->renderStatusChangeHtml($oldStatus, $newStatus, $assigneeName),
         ]);
     }
 
@@ -305,12 +304,6 @@ class EmailService
                 'comment_body' => $comment->body,
                 'attachments_list' => $this->renderer->renderAttachmentsHtml($commentAttachments),
                 'status_change_section' => $statusChangeSection,
-                'old_status' => $this->renderer->getStatusLabel($oldStatus),
-                'old_status_key' => $oldStatus,
-                'new_status' => $this->renderer->getStatusLabel($newStatus),
-                'new_status_key' => $newStatus,
-                'assignee_name' => $assigneeName,
-                'updated_date' => $this->renderer->formatDate($ticket->modified),
                 'ticket_url' => $this->renderer->getTicketUrl($ticket->id),
                 'system_title' => 'Sistema de Soporte',
                 'agent_profile_image_url' => $agentProfileImageUrl,
@@ -535,20 +528,14 @@ class EmailService
      */
     public function sendPqrsStatusChangeNotification($pqrs, string $oldStatus, string $newStatus): bool
     {
-        // Build assignee info if there's an assignee
-        $assigneeInfo = '';
-        if (!empty($pqrs->assignee_id)) {
-            $pqrsTable = $this->fetchTable('Pqrs');
-            $pqrsWithAssignee = $pqrsTable->get($pqrs->id, contain: ['Assignees']);
-            if ($pqrsWithAssignee->assignee) {
-                $assigneeInfo = "<p><strong>Asignado a:</strong> {$pqrsWithAssignee->assignee->name}</p>";
-            }
-        }
+        // Load PQRS with assignee association
+        $pqrsTable = $this->fetchTable('Pqrs');
+        $pqrs = $pqrsTable->get($pqrs->id, contain: ['Assignees']);
+
+        $assigneeName = $pqrs->assignee ? $pqrs->assignee->name : 'No asignado';
 
         return $this->sendGenericTemplateEmail('pqrs', 'pqrs_estado', $pqrs, [
-            'old_status' => $this->renderer->getStatusLabel($oldStatus),
-            'new_status' => $this->renderer->getStatusLabel($newStatus),
-            'assignee_info' => $assigneeInfo,
+            'status_change_section' => $this->renderer->renderStatusChangeHtml($oldStatus, $newStatus, $assigneeName),
             'system_title' => 'Mesa de Ayuda',
         ]);
     }
@@ -706,12 +693,6 @@ class EmailService
                 'comment_body' => $comment->body,
                 'attachments_list' => $this->renderer->renderAttachmentsHtml($commentAttachments),
                 'status_change_section' => $statusChangeSection,
-                'old_status' => $this->renderer->getStatusLabel($oldStatus),
-                'old_status_key' => $oldStatus,
-                'new_status' => $this->renderer->getStatusLabel($newStatus),
-                'new_status_key' => $newStatus,
-                'assignee_name' => $assigneeName,
-                'updated_date' => $this->renderer->formatDate($pqrs->modified),
                 'system_title' => 'Sistema de Atención al Cliente',
                 'agent_profile_image_url' => $agentProfileImageUrl,
                 'agent_name' => $comment->user->name,
@@ -780,11 +761,10 @@ class EmailService
         $comprasTable = $this->fetchTable('Compras');
         $compra = $comprasTable->get($compra->id, contain: ['Requesters', 'Assignees']);
 
+        $assigneeName = $compra->assignee ? $compra->assignee->name : 'No asignado';
+
         return $this->sendGenericTemplateEmail('compra', 'compra_estado', $compra, [
-            'old_status' => $this->renderer->getStatusLabel($oldStatus),
-            'new_status' => $this->renderer->getStatusLabel($newStatus),
-            'assignee_name' => $compra->assignee ? $compra->assignee->name : 'No asignado',
-            'updated_date' => $this->renderer->formatDate($compra->modified),
+            'status_change_section' => $this->renderer->renderStatusChangeHtml($oldStatus, $newStatus, $assigneeName),
         ]);
     }
 
@@ -936,12 +916,6 @@ class EmailService
                 'comment_body' => $comment->body,
                 'attachments_list' => $this->renderer->renderAttachmentsHtml($commentAttachments),
                 'status_change_section' => $statusChangeSection,
-                'old_status' => $this->renderer->getStatusLabel($oldStatus),
-                'old_status_key' => $oldStatus,
-                'new_status' => $this->renderer->getStatusLabel($newStatus),
-                'new_status_key' => $newStatus,
-                'assignee_name' => $assigneeName,
-                'updated_date' => $this->renderer->formatDate($compra->modified),
                 'compra_url' => $this->getCompraUrl($compra->id),
                 'system_title' => 'Sistema de Compras',
                 'agent_profile_image_url' => $agentProfileImageUrl,

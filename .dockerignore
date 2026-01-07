@@ -1,0 +1,64 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+CLAUDE.md
+*.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Local configuration
+config/app_local.php
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/*.log
+tmp/cache/*
+tmp/sessions/*
+tmp/tests/*
+
+# Test files
+tests/
+phpunit.xml
+phpunit.xml.dist
+.phpunit.result.cache
+
+# Node modules (if any)
+node_modules/
+
+# Composer
+vendor/bin/phpunit
+vendor/bin/phpcs
+vendor/bin/phpcbf
+vendor/bin/phpstan
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker files (don't copy docker configs into image)
+docker-compose.yml
+docker-compose.prod.yml
+docker-compose.*.yml
+Dockerfile
+docker/
+
+# Uploads (will be mounted as volume)
+webroot/uploads/*
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.cache

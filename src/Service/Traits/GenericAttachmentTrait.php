@@ -283,14 +283,14 @@ trait GenericAttachmentTrait
 
             case 'pqrs':
                 $data['pqrs_id'] = $entityId;
-                $data['pqrs_comment_id'] = $commentId;
-                $data['user_id'] = $userId;
+                $data['comment_id'] = $commentId;
+                $data['uploaded_by'] = $userId;
                 break;
 
             case 'compra':
                 $data['compra_id'] = $entityId;
                 $data['compras_comment_id'] = $commentId;
-                $data['user_id'] = $userId;
+                $data['uploaded_by_user_id'] = $userId;
                 break;
 
             default:
