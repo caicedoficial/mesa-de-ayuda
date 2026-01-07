@@ -54,7 +54,13 @@ Si ves `SIGQUIT` o el contenedor se reinicia constantemente:
 - Verifica que el puerto 80 esté configurado en Easypanel
 - Verifica los logs de nginx: `cat /var/www/html/logs/nginx-error.log`
 
-### 4. Ejecutar Migraciones (CRÍTICO)
+### 4. La Aplicación se Conectará a la BD Automáticamente
+
+El contenedor ya está configurado para usar las variables de entorno de Easypanel:
+- `config/app_local.php` se genera automáticamente desde `config/app_local.example.php`
+- Lee `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`
+
+### 5. Ejecutar Migraciones (CRÍTICO)
 
 Una vez desplegado, accede a la **Terminal/Console** en Easypanel y ejecuta:
 

@@ -26,6 +26,9 @@ WORKDIR /var/www/html
 # Copy application files
 COPY . /var/www/html
 
+# Copy config template to app_local.php (uses environment variables)
+RUN cp config/app_local.example.php config/app_local.php
+
 # Install application dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 

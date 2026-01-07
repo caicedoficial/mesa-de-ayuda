@@ -35,22 +35,26 @@ return [
      * Connection information used by the ORM to connect
      * to your application's datastores.
      *
+     * IMPORTANT: For Docker/production deployments, this file should use
+     * environment variables. The values below are defaults for local development.
+     *
+     * Environment variables:
+     * - DB_HOST: Database host (default: localhost)
+     * - DB_PORT: Database port (default: 3306)
+     * - DB_USERNAME: Database username
+     * - DB_PASSWORD: Database password
+     * - DB_DATABASE: Database name
+     *
      * See app.php for more configuration options.
      */
     'Datasources' => [
         'default' => [
-            'host' => 'localhost',
-            /*
-             * CakePHP will use the default DB port based on the driver selected
-             * MySQL on MAMP uses port 8889, MAMP users will want to uncomment
-             * the following line and set the port accordingly
-             */
-            //'port' => 'non_standard_port_number',
+            'host' => env('DB_HOST', 'localhost'),
+            'port' => env('DB_PORT', 3306),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'database' => env('DB_DATABASE', 'soporte'),
 
-            'username' => 'my_app',
-            'password' => 'secret',
-
-            'database' => 'my_app',
             /*
              * If not using the default 'public' schema with the PostgreSQL driver
              * set it here.
@@ -67,11 +71,11 @@ return [
          * The test connection is used during the test suite.
          */
         'test' => [
-            'host' => 'localhost',
-            //'port' => 'non_standard_port_number',
-            'username' => 'my_app',
-            'password' => 'secret',
-            'database' => 'test_myapp',
+            'host' => env('DB_HOST', 'localhost'),
+            'port' => env('DB_PORT', 3306),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'database' => env('DB_DATABASE', 'test_soporte'),
             //'schema' => 'myapp',
             'url' => env('DATABASE_TEST_URL', 'sqlite://127.0.0.1/tmp/tests.sqlite'),
         ],
